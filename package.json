@@ -1,5 +1,5 @@
 {
-  "name": "bun-rolldown-boilerplate",
+  "name": "bun-vite-boilerplate",
   "module": "index.ts",
   "type": "module",
   "private": true,
