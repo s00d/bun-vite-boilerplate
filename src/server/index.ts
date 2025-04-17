@@ -27,15 +27,25 @@ function walkStaticFiles(dir: string, base = "") {
 
 }
 
-let debounceTimer: any;
+declare global {
+  var __staticWatcher: import("node:fs").FSWatcher | undefined;
+}
 
-watch(PUBLIC_DIR, { recursive: true }, () => {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => {
-    console.log("♻️ Static files changed, reloading cache");
-    walkStaticFiles(PUBLIC_DIR);
-  }, 200);
-});
+let timer: ReturnType<typeof setTimeout>;
+if (!globalThis.__staticWatcher) {
+  globalThis.__staticWatcher = watch(
+    PUBLIC_DIR,
+    { recursive: true },
+    () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        console.log("♻️ Static files changed, reloading cache");
+        walkStaticFiles(PUBLIC_DIR);
+      }, 300);
+    }
+  );
+}
+
 
 try {
   walkStaticFiles(PUBLIC_DIR);
