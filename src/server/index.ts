@@ -13,7 +13,6 @@ const PUBLIC_DIR = join(process.cwd(), "./public");
 const staticFiles = new Map<string, BunFile>();
 
 function walkStaticFiles(dir: string, base = "") {
-  staticFiles.clear();
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const fullPath = join(dir, entry.name);
     const relativePath = join(base, entry.name);
@@ -25,11 +24,17 @@ function walkStaticFiles(dir: string, base = "") {
       staticFiles.set(pathKey, Bun.file(fullPath));
     }
   }
+
 }
 
+let debounceTimer: any;
+
 watch(PUBLIC_DIR, { recursive: true }, () => {
-  console.log("♻️ Static files changed, reloading cache");
-  walkStaticFiles(PUBLIC_DIR); // твоя функция
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => {
+    console.log("♻️ Static files changed, reloading cache");
+    walkStaticFiles(PUBLIC_DIR);
+  }, 200);
 });
 
 try {
