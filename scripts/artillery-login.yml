@@ -1,0 +1,33 @@
+config:
+  target: "http://localhost:8888"
+  phases:
+    - duration: 10
+      arrivalRate: 20
+  processor: "./processor.cjs"
+  defaults:
+    headers:
+      content-type: application/json
+
+scenarios:
+  - name: get csrf → login → profile
+    flow:
+      - get:
+          url: "/"
+          headers:
+            accept: "text/html"
+          afterResponse: "extractCsrf"
+
+      - post:
+          url: "/api/guest/login"
+          headers:
+            x-csrf-token: "{{ csrfToken }}"
+            cookie: "{{ csrfCookie }}"
+          json:
+            email: "test@example.com"
+            password: "secret"
+          afterResponse: "extractSessionCookie"
+
+      - get:
+          url: "/api/profile"
+          headers:
+            cookie: "{{ sessionCookie }}"
