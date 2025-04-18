@@ -1,11 +1,16 @@
+import { readdirSync } from "node:fs";
 // src/server/routes/router.ts
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { resolve } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { generateCsrfToken } from "@/server/middleware/csrf";
+import { guestRoutes } from "@/server/routes/guest";
+import { metaRoute } from "@/server/routes/meta";
 import vue from "@vitejs/plugin-vue";
+import type { BunFile } from "bun";
 import { authorize } from "../middleware/auth";
-import { guestRoutes } from "./guest";
-import { protectedRoutes } from "./protected";
+import { protectedRoute } from "./protected";
+
+const PUBLIC_DIR = join(process.cwd(), "./public");
 
 let renderer: (
   url: string,
@@ -90,7 +95,6 @@ function adaptNodeMiddleware(middleware: (req: any, res: any, next: () => void) 
 
 if (process.env.NODE_ENV === "production") {
   template = await Bun.file(resolve(process.cwd(), "./dist/client/index.html")).text();
-  // manifest = await import(resolve(process.cwd(), './dist/client/manifest.json')).then(m => m.default);
   manifest = await import(resolve(process.cwd(), "./dist/server/.vite/ssr-manifest.json")).then((m) => m.default);
   const mod = await import(resolve(process.cwd(), "./dist/server/entry-server.js"));
   renderer = mod.render;
@@ -102,6 +106,7 @@ if (process.env.NODE_ENV === "production") {
     server: {
       middlewareMode: true,
       cors: true,
+      port: 64788,
     },
     resolve: {
       alias: {
@@ -112,30 +117,46 @@ if (process.env.NODE_ENV === "production") {
     plugins: [vue()],
   });
   viteMiddleware = vite.middlewares;
-  const html = await Bun.file(resolve(process.cwd(), "./index.html")).text();
-  template = await vite.transformIndexHtml("/", html);
   manifest = {}; // пустой, для dev режима
+
+  await new Promise((r) => setTimeout(r, 300));
+  const htmlRaw = await Bun.file(resolve(process.cwd(), "./index.html")).text();
+  template = await vite.transformIndexHtml("/", htmlRaw);
   const mod = await vite.ssrLoadModule(resolve(process.cwd(), "./src/client/entry-server.ts"));
   renderer = mod.render;
 }
 
 const encoder = new TextEncoder();
 
+type BunRouteHandler = (request: Bun.BunRequest) => Response | Promise<Response>;
+
+interface RouteEntry {
+  method: string;
+  path: string;
+  handler: BunRouteHandler;
+}
+
+function walkStaticFiles(dir: string, base = ""): [string, BunFile][] {
+  const entries: [string, BunFile][] = [];
+
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const fullPath = join(dir, entry.name);
+    const relativePath = join(base, entry.name);
+
+    if (entry.isDirectory()) {
+      entries.push(...walkStaticFiles(fullPath, relativePath));
+    } else {
+      const pathKey = `/${relativePath.split(sep).join("/")}`;
+      entries.push([pathKey, Bun.file(fullPath)]);
+    }
+  }
+
+  return entries;
+}
+
 export async function handleRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const pathname = url.pathname;
-
-  if (pathname.startsWith("/api/guest")) {
-    return guestRoutes(request);
-  }
-
-  if (pathname.startsWith("/api/")) {
-    const auth = await authorize(request);
-    if (!auth.user) {
-      return new Response("Unauthorized", { status: 401 });
-    }
-    return protectedRoutes(request, { user: auth.user });
-  }
 
   // ✅ Production SSR
   if (process.env.NODE_ENV === "production") {
@@ -158,6 +179,17 @@ export async function handleRequest(request: Request): Promise<Response> {
           console.error("Static file error:", err);
         }
         return new Response("Not found", { status: 404 });
+      }
+
+      const staticFile = Bun.file(
+        resolve(process.cwd(), `./dist/static${pathname === "/" ? "/index" : pathname}.html`),
+      );
+      if (await staticFile.exists()) {
+        const csrfToken = generateCsrfToken();
+        const headers = new Headers();
+        headers.set("Content-Type", "text/html");
+        headers.set("Set-Cookie", `csrf=${csrfToken}; Path=/; SameSite=Strict`);
+        return new Response(staticFile, { headers });
       }
 
       const { env, html, state, preloadLinks, headTags } = await renderer(url.pathname, request.headers, manifest);
@@ -194,6 +226,7 @@ export async function handleRequest(request: Request): Promise<Response> {
     // Vite может вернуть 404 без тела
     if (response.status === 404) {
       console.warn(`Vite bad url ${pathname}`);
+      return new Response("Not found", { status: 404 });
     }
 
     return response;
@@ -207,7 +240,11 @@ export async function handleRequest(request: Request): Promise<Response> {
   }
 
   // SSR
-  const { env, html, state, preloadLinks, headTags } = await renderer(new URL(request.url).pathname, request.headers, manifest);
+  const { env, html, state, preloadLinks, headTags } = await renderer(
+    new URL(request.url).pathname,
+    request.headers,
+    manifest,
+  );
   const fullHtml = template
     .replace("<!--preload-links-->", preloadLinks)
     .replace("<!--ssr-outlet-->", html)
@@ -222,4 +259,64 @@ export async function handleRequest(request: Request): Promise<Response> {
   return new Response(fullHtml, {
     headers: respHeaders,
   });
+}
+
+export function generateRoutes(): Record<string, BunRouteHandler> {
+  const routes: RouteEntry[] = [];
+
+  for (const [path, methods] of Object.entries(metaRoute)) {
+    for (const [method, handler] of Object.entries(methods)) {
+      routes.push({
+        method,
+        path,
+        handler,
+      });
+    }
+  }
+  for (const [path, methods] of Object.entries(guestRoutes)) {
+    for (const [method, handler] of Object.entries(methods)) {
+      routes.push({
+        method,
+        path,
+        handler,
+      });
+    }
+  }
+
+  for (const [path, methods] of Object.entries(protectedRoute)) {
+    for (const [method, handler] of Object.entries(methods)) {
+      routes.push({
+        method,
+        path,
+        handler: async (req) => {
+          const auth = await authorize(req);
+          if (!auth.user) {
+            return new Response("Unauthorized", { status: 401 });
+          }
+
+          return handler(req, { user: auth.user });
+        },
+      });
+    }
+  }
+
+  for (const [path, file] of walkStaticFiles(PUBLIC_DIR)) {
+    routes.push({
+      method: "GET",
+      path,
+      handler: () =>
+        new Response(file, {
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+        }),
+    });
+  }
+
+  // Convert to Bun.serve() style
+  const finalRoutes: Record<string, BunRouteHandler> = {};
+
+  for (const route of routes) {
+    finalRoutes[route.path] = route.handler;
+  }
+
+  return finalRoutes;
 }

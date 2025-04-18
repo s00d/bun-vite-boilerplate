@@ -21,37 +21,65 @@ A full-featured TypeScript boilerplate using **Bun**, **Vue 3** (SSR + SPA), **D
 ## 📁 Project Structure
 
 ```
+data/                         # SQLite database file (default: mydb.sqlite)
+dist/                         # Production build output (SSR + client)
+scripts/                      # Code generation, build, and utility scripts
+tests/                        # Unit, integration, and E2E tests
+public/                       # Static files served as-is (e.g. images)
+.env                          # Environment variable definitions
+index.html                    # SSR HTML template
+config/                      # Configuration files (SSG, WebSocket, security, etc.)
+├── ssg.config.ts           # List of routes for static generation
+├── ws.config.ts            # WebSocket settings (ping interval, timeouts, etc.)
+└── security.config.ts      # Security settings (e.g., allowed origins, CSP, etc.)
 src/
-├── client/                  # Frontend (Vue 3 + Vite + Pinia)
-│   ├── pages/               # File-based routing
-│   ├── composables/         # Vue hooks (e.g., useWebSocket)
-│   ├── store/               # Pinia stores (user, etc.)
-│   ├── router.ts            # Vue Router setup
-│   ├── main.ts              # Shared SSR/SPA factory
-│   ├── entry-client.ts      # SPA entry
-│   ├── entry-server.ts      # SSR entry
-│   ├── App.vue              # Root layout
-│   └── preload.ts           # SSR preload link collector
+├── client/                   # Frontend (Vue 3 + Vite + Pinia)
+│   ├── pages/                # File-based routing (SPA + SSR)
+│   │   ├── auth/             # Auth pages (login/register)
+│   │   │    ├── *.vue        # Route components
+│   │   └── *.vue             # Route components
+│   ├── composables/          # Vue composables (e.g., useWebSocket)
+│   ├── store/                # Pinia stores (e.g., user store)
+│   ├── entry-client.ts       # SPA hydration entry
+│   ├── entry-server.ts       # SSR rendering entry
+│   ├── entry-static-client.ts# Static client hydration entry
+│   ├── App.vue               # Root layout component
+│   ├── main.ts               # App factory (shared between SSR/SPA)
+│   ├── router.ts             # Vue Router setup
+│   ├── env.d.ts              # Vue module declaration
+│   └── vite-env.d.ts         # Vite environment declarations
 │
-├── server/                 # Server-side logic
-│   ├── db/                 # Drizzle ORM + SQLite init
-│   ├── models/             # Database schema
-│   ├── controllers/        # Route logic (e.g., auth)
-│   ├── middleware/         # Auth and other middlewares
-│   ├── routes/             # Guest/protected API routing
-│   ├── ws/                 # WebSocket handlers
-│   ├── index.ts            # Bun HTTP/WebSocket server entry
-│   └── routes/router.ts    # SSR + Vite dev middleware
+├── server/                   # Backend (Bun HTTP + WebSocket)
+│   ├── db/                   # Database initialization (Drizzle ORM)
+│   │   └── init.ts
+│   ├── models/               # Database schema (Drizzle ORM)
+│   │   ├── schema.ts
+│   │   ├── session.ts
+│   │   └── user.ts
+│   ├── controllers/          # Route handlers (e.g. auth, meta, static)
+│   │   ├── auth.ts
+│   │   ├── meta.ts
+│   ├── middleware/           # Middleware (auth, csrf, etc.)
+│   │   ├── auth.ts
+│   │   └── csrf.ts
+│   ├── routes/               # Route definitions and dispatcher
+│   │   ├── guest.ts
+│   │   ├── meta.ts
+│   │   ├── protected.ts
+│   │   ├── router.ts         # Bun + Vite SSR adapter
+│   ├── utils/                # Utility helpers (file I/O, SSG, preload)
+│   │   ├── files.ts
+│   │   ├── preload.ts
+│   ├── ws/                   # WebSocket server implementation
+│   │   └── server.ts
+│   └── index.ts              # HTTP/WebSocket server entrypoint
 │
-├── shared/                # Shared utilities (client + server)
-│   ├── axios.ts            # Global axios client with SSR cookie support
-│   ├── env.ts              # Access to PUBLIC_ environment variables
-│   └── globalCookieJar.ts  # SSR cookie storage logic
-│
-├── public/                 # Static assets
-├── index.html              # SSR HTML template
-├── .env                    # Environment variables
-└── bunfig.toml             # Bun config
+├── shared/                   # Shared utilities for client/server
+│   ├── axios.ts              # Axios instance with SSR cookie support
+│   ├── env.ts                # PUBLIC_ environment variable reader
+│   └── globalCookieJar.ts    # Server-side cookie cache
+
+
 ```
 
 ---
@@ -68,9 +96,9 @@ npx drizzle-kit migrate
 Create `.env`:
 
 ```
-PORT=3000
+PORT=8888
 DB_FILE_NAME=./data.sqlite
-PUBLIC_API_URL=http://localhost:3000
+PUBLIC_API_URL=http://localhost:8888
 ```
 
 Start in dev:
@@ -110,7 +138,7 @@ bun run start
 - `baseURL` is `PUBLIC_API_URL`
 
 ### WebSocket
-- Connect via `ws://localhost:3000/ws`
+- Connect via `ws://localhost:8888/ws`
 - Use `useWebSocket()` composable on the client
 - Broadcast server messages with `broadcast()`
 
@@ -133,7 +161,7 @@ export const posts = sqliteTable('posts', { ... });
 ### A Controller
 Create a handler in `controllers/`:
 ```ts
-export async function dashboardController(req: Request) {
+export async function dashboardController(req: Bun.BunRequest) {
   return Response.json({ ok: true });
 }
 ```
@@ -141,7 +169,7 @@ export async function dashboardController(req: Request) {
 ### A Middleware
 Write in `middleware/`:
 ```ts
-export async function auth(req: Request): Promise<{ user: User | null }> {
+export async function auth(req: Bun.BunRequest): Promise<{ user: User | null }> {
   // logic
 }
 ```
@@ -301,6 +329,8 @@ During server-side rendering, the generated tags are serialized and injected int
 No extra configuration is needed — SSR automatically includes the result of `useHead()` in the response.
 
 
+---
+
 # Load Testing Results
 
 ## 📊 Latency Overview
@@ -417,7 +447,123 @@ Extracted from `artillery` and custom loadtest logs:
 
 ---
 
-_Last updated: April 17, 2025_
+## 🚀 Performance Without Frontend or WebSocket
+
+To isolate backend performance, we executed a high-load benchmark targeting the `/meta/info` endpoint without involving frontend rendering, WebSocket communication, or additional system load (e.g., SSR or SQLite queries).
+
+### 📌 Test Configuration:
+- **Command:** `bun run scripts/metatest.ts`
+- **Connections:** 1000
+- **Duration:** 10 seconds
+- **Workers:** 1
+
+### 📈 Results:
+- **Average Latency:** `72.28 ms`
+- **p99 Latency:** `142 ms`
+- **Max Latency:** `269 ms`
+- **Avg Throughput:** `~49,686 req/sec`, `~19.3 MB/s`
+- **Total Processed:** `~501,000 requests in 10 seconds`
+
+---
+
+## ✅ Conclusion
+
+Given the SQLite backend and SSR integration, the Bun server delivers:
+
+- **High performance** for static and API requests.
+- **Consistent latency** within a few hundred milliseconds for chained operations (e.g., CSRF → Login → Profile).
+- **Excellent RPS handling** in raw conditions without frontend or I/O overhead.
+
+These results confirm that the backend powered by **Bun is highly capable under load**, especially when isolated from rendering or database operations.
+
+---
+
+## ⚙️ Configuration
+
+All project configuration is centralized in the `config/` directory.
+
+### 📄 `config/ssg.config.ts`
+
+```ts
+export const staticRoutes = ["/", "/about", "/profile", "/chat", "/auth/login", "/auth/register"];
+```
+
+Used by `scripts/generateStaticPages.ts` to pre-render selected routes as static HTML files during production build.
+
+---
+
+### 📄 `config/ws.config.ts`
+
+```ts
+export const WS_CONFIG = {
+  pingInterval: 30_000,
+  pongTimeout: 10_000,
+};
+```
+
+Used by the WebSocket server (`src/server/ws/server.ts`) to manage keep-alive and timeouts for active connections.
+
+---
+
+### 📄 `config/security.config.ts`
+
+```ts
+export const SECURITY_CONFIG = {
+  allowedOrigins: ["http://localhost:8888"],
+  contentSecurityPolicy: "default-src 'self'; script-src 'self';",
+};
+```
+
+Used across the server for CORS, CSP headers, and request validation.
+
+---
+
+
+## 🏗️ Static Generation (SSG)
+
+This template supports static pre-rendering (SSG) for selected routes.
+
+### ⚙️ Setup
+
+1. **Define routes** to generate in `ssg.config.ts`:
+   ```ts
+   export const staticRoutes = ["/", "/about", "/auth/login"];
+   ```
+
+2. **Run the generation** script:
+   ```bash
+   bun run generate
+   ```
+
+   This will:
+  - Build the project using `vite.config.prod.ts`
+  - Render all configured routes to HTML
+  - Save files to `dist/static`
+
+4. **Serve the app**:
+   ```bash
+   bun run start
+   ```
+
+---
+
+### 🚦 How it works
+
+- When a user requests a page:
+  - If a pre-rendered HTML file exists in `dist/static`, it is served instantly.
+  - Otherwise, the page is rendered via SSR on demand.
+- This ensures fast load for common pages, while keeping SSR flexibility.
+
+---
+
+### 💡 Notes
+
+- You can mix SSG and SSR freely.
+- Useful for marketing, landing, auth, and public pages.
+- Static files are generated once and served without re-computation.
+
+
+_Last updated: April 18, 2025_
 
 
 ---

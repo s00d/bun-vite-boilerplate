@@ -1,4 +1,5 @@
 import { and, eq, gt } from "drizzle-orm";
+import { SESSION_COOKIE_NAME } from "../../../config/security.config";
 // src/server/middleware/auth.ts
 import { db } from "../db/init";
 import { sessions } from "../models/session";
@@ -18,7 +19,7 @@ export async function getUserFromHeaders(headers: {
   apiKey?: string | null;
 }): Promise<{ user: User | null }> {
   const cookies = parseCookies(headers.cookie);
-  const sessionId = cookies.sessionId;
+  const sessionId = cookies[SESSION_COOKIE_NAME];
 
   if (sessionId) {
     const now = new Date();

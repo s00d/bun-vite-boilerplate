@@ -28,10 +28,10 @@
 
 <script setup lang="ts">
 import { api } from "@/shared/axios";
+import { useHead } from "@vueuse/head";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "../store/user";
-import { useHead } from "@vueuse/head";
 
 useHead({
   title: "Home Page - My App",

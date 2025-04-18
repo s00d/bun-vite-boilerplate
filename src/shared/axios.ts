@@ -1,5 +1,6 @@
 // src/shared/axios.ts
 import axios from "axios";
+import { CSRF_COOKIE_NAME, CSRF_HEADER_NAME } from "../../config/security.config";
 import { getEnv } from "./env";
 import { getGlobalCookie } from "./globalCookieJar";
 
@@ -35,8 +36,8 @@ if (isServer) {
 } else {
   api.interceptors.request.use((config) => {
     if (["post", "put", "patch", "delete"].includes(config.method || "")) {
-      const csrf = getCookie("csrf");
-      if (csrf) config.headers["x-csrf-token"] = csrf;
+      const csrf = getCookie(CSRF_COOKIE_NAME);
+      if (csrf) config.headers[CSRF_HEADER_NAME] = csrf;
     }
     return config;
   });

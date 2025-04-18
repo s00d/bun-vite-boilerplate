@@ -1,9 +1,9 @@
 // src/client/main.ts
+import { createHead } from "@vueuse/head";
 import { createPinia } from "pinia";
 import { createApp as createBaseApp, createSSRApp } from "vue";
 import App from "./App.vue";
 import { createRouter } from "./router";
-import { createHead } from "@vueuse/head";
 
 export function createApp() {
   const app = import.meta.env.SSR ? createSSRApp(App) : createBaseApp(App);

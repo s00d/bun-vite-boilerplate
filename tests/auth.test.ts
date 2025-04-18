@@ -46,7 +46,6 @@ describe("Auth API", () => {
     expect(json.userId).toBeTypeOf("number");
   });
 
-
   it("should log in a user and access profile", async () => {
     const { cookie, token } = await getCsrfHeaders();
 
@@ -59,7 +58,6 @@ describe("Auth API", () => {
       },
       body: JSON.stringify({ email: "test@example.com", password: "secret" }),
     });
-
 
     expect(login.status).toBe(200);
     const sessionCookie = login.headers.get("set-cookie");

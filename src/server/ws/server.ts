@@ -1,6 +1,8 @@
 import { getUserFromHeaders } from "@/server/middleware/auth";
 // src/server/ws/server.ts
 import type { ServerWebSocket, WebSocketHandler } from "bun";
+import { SESSION_COOKIE_NAME } from "../../../config/security.config";
+import { WS_CONFIG } from "../../../config/ws.config";
 
 interface WsData {
   sessionId: string | null;
@@ -9,8 +11,6 @@ interface WsData {
 }
 
 const sockets = new Set<ServerWebSocket<WsData>>();
-const PING_INTERVAL = 30_000; // 30s
-const PONG_TIMEOUT = 10_000; // 10s
 
 export function setupWebSocket(): WebSocketHandler<WsData> {
   // Пинг-сервер
@@ -19,7 +19,7 @@ export function setupWebSocket(): WebSocketHandler<WsData> {
     for (const ws of sockets) {
       if (ws.readyState !== 1) continue;
 
-      if (ws.data.lastPong && now - ws.data.lastPong > PONG_TIMEOUT) {
+      if (ws.data.lastPong && now - ws.data.lastPong > WS_CONFIG.pongTimeout) {
         console.log("⚠️ WS timed out:", ws.data.email);
         ws.close();
         sockets.delete(ws);
@@ -33,7 +33,7 @@ export function setupWebSocket(): WebSocketHandler<WsData> {
         sockets.delete(ws);
       }
     }
-  }, PING_INTERVAL);
+  }, WS_CONFIG.pingInterval);
 
   return {
     async open(ws) {
@@ -41,7 +41,7 @@ export function setupWebSocket(): WebSocketHandler<WsData> {
       let email = "guest";
 
       if (sessionId) {
-        const { user } = await getUserFromHeaders({ cookie: `sessionId=${sessionId}` });
+        const { user } = await getUserFromHeaders({ cookie: `${SESSION_COOKIE_NAME}=${sessionId}` });
         if (user?.email) {
           email = user.email;
         }

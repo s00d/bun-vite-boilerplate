@@ -22,7 +22,6 @@ async function getCsrfHeaders(): Promise<{ cookie: string; token: string }> {
   };
 }
 
-
 (async () => {
   const { cookie, token } = await getCsrfHeaders();
 

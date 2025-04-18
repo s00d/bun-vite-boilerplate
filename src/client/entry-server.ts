@@ -1,22 +1,40 @@
-// src/client/entry-server.ts
 import { setGlobalCookie } from "@/shared/globalCookieJar";
+// src/client/entry-server.ts
+import type { HeadTag } from "@unhead/schema";
 import { renderToString } from "@vue/server-renderer";
 import { createApp } from "./main";
-import { renderPreloadLinks } from "./preload";
 import { useUserStore } from "./store/user";
-import {type HeadTag} from "@unhead/schema";
+
+export function renderPreloadLinks(modules: Set<string>, manifest: Record<string, string[]>) {
+  const seen = new Set();
+  let links = "";
+  for (const id of modules) {
+    const files = manifest[id];
+    if (files) {
+      for (const file of files) {
+        if (!seen.has(file)) {
+          seen.add(file);
+          if (file.endsWith(".js")) {
+            links += `<link rel="modulepreload" crossorigin href="/${file}">`;
+          } else if (file.endsWith(".css")) {
+            links += `<link rel="stylesheet" href="/${file}">`;
+          }
+        }
+      }
+    }
+  }
+  return links;
+}
 
 function renderHeadTags(tags: HeadTag[]): string {
   return tags
     .map(({ tag, props, textContent }) => {
       const attrs = Object.entries(props || {})
-        .map(([key, value]) => `${key}="${String(value).replace(/"/g, '&quot;')}"`)
+        .map(([key, value]) => `${key}="${String(value).replace(/"/g, "&quot;")}"`)
         .join(" ");
-      const openTag = `<${tag}${attrs ? " " + attrs : ""}>`;
+      const openTag = `<${tag}${attrs ? ` ${attrs}` : ""}>`;
       const closeTag = tag === "meta" || tag === "link" ? "" : `</${tag}>`;
-      return textContent
-        ? `${openTag}${textContent}${closeTag}`
-        : `${openTag}${closeTag}`;
+      return textContent ? `${openTag}${textContent}${closeTag}` : `${openTag}${closeTag}`;
     })
     .join("\n");
 }

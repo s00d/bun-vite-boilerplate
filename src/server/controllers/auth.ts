@@ -1,13 +1,14 @@
 import { validateCsrf } from "@/server/middleware/csrf";
+import bcrypt from "bcryptjs";
 import { randomUUIDv7 } from "bun";
 import { eq } from "drizzle-orm";
+import { SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "../../../config/security.config";
 // src/server/controllers/auth.ts
 import { db } from "../db/init";
 import { sessions } from "../models/session";
-import bcrypt from "bcryptjs";
 import { type User, users } from "../models/user";
 
-export async function registerController(request: Request): Promise<Response> {
+export async function registerController(request: Bun.BunRequest): Promise<Response> {
   if (!validateCsrf(request)) {
     return new Response("Invalid CSRF token", { status: 403 });
   }
@@ -42,13 +43,13 @@ export async function registerController(request: Request): Promise<Response> {
   });
 
   const headers = new Headers({
-    "Set-Cookie": `sessionId=${sessionId}; Path=/; HttpOnly; Max-Age=86400`,
+    "Set-Cookie": `${SESSION_COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; Max-Age=${SESSION_MAX_AGE}`,
   });
 
   return new Response(JSON.stringify({ message: "Registered", userId: user.id }), { headers });
 }
 
-export async function loginController(request: Request): Promise<Response> {
+export async function loginController(request: Bun.BunRequest): Promise<Response> {
   if (!validateCsrf(request)) {
     return new Response("Invalid CSRF token", { status: 403 });
   }
@@ -73,22 +74,22 @@ export async function loginController(request: Request): Promise<Response> {
   });
 
   const headers = new Headers({
-    "Set-Cookie": `sessionId=${sessionId}; Path=/; HttpOnly; Max-Age=86400`,
+    "Set-Cookie": `${SESSION_COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; Max-Age=${SESSION_MAX_AGE}`,
   });
 
   return new Response(JSON.stringify({ message: "Logged in" }), { headers });
   // return new Response(JSON.stringify({ message: "Logged in" }), {  });
 }
 
-export async function profileController(_: Request, context: { user: User }): Promise<Response> {
+export async function profileController(_: Bun.BunRequest, context: { user: User }): Promise<Response> {
   const user = db.select().from(users).where(eq(users.id, context.user.id)).get();
   if (!user) return new Response("Not Found", { status: 404 });
   return Response.json({ email: user.email, apiKey: user.apiKey });
 }
 
-export async function logoutController(_: Request): Promise<Response> {
+export async function logoutController(_: Bun.BunRequest): Promise<Response> {
   const headers = new Headers({
-    "Set-Cookie": "sessionId=; Path=/; HttpOnly; Max-Age=0",
+    "Set-Cookie": `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; Max-Age=0`,
   });
 
   return new Response(JSON.stringify({ message: "Logged out" }), { headers });

@@ -1,5 +1,5 @@
 // src/scripts/gen.ts
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 function ensureDir(path: string) {
@@ -8,7 +8,7 @@ function ensureDir(path: string) {
 
 function genController(name: string) {
   const content = `// src/server/controllers/${name}.ts
-export async function ${name}Controller(req: Request): Promise<Response> {
+export async function ${name}Controller(req: Bun.BunRequest): Promise<Response> {
   return Response.json({ message: "${name} controller works" });
 }`;
 
@@ -17,30 +17,55 @@ export async function ${name}Controller(req: Request): Promise<Response> {
   console.log(`✔ Controller created: ${path}`);
 }
 
-function genRouteFile(name: string, type: "guest" | "protected") {
-  const routeName = name.toLowerCase();
+function genRoute(name: string, type: "guest" | "protected") {
   const controllerName = `${name}Controller`;
-  const filePath = resolve(`src/server/routes/${type}.ts`);
+  const routePath = resolve(`src/server/routes/${type}.ts`);
+  const controllerImport = `import { ${controllerName} } from "../controllers/${name}";`;
+  const routeKey = `/api/${type}/${name.toLowerCase()}`;
 
-  if (!existsSync(filePath)) {
-    const content = `// src/server/routes/${type}.ts
-import { ${controllerName} } from "../controllers/${name}";
+  const routeVar = type === "guest" ? "guestRoutes" : "protectedRoute";
+  const indent = "  ";
 
-export async function ${type}Routes(request: Request): Promise<Response> {
-  const url = new URL(request.url);
-  const method = request.method;
+  // If file doesn't exist — create full boilerplate
+  if (!existsSync(routePath)) {
+    const header =
+      type === "protected"
+        ? `import type { User } from "../models/user";\n\nexport type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";\nexport type ProtectedRouteHandler = (req: Bun.BunRequest, ctx: { user: User }) => Promise<Response>;\nexport type ProtectedRouteMap = Record<string, Partial<Record<Method, ProtectedRouteHandler>>>;\n\n${controllerImport}\n\nexport const ${routeVar}: ProtectedRouteMap = {\n${indent}"${routeKey}": {\n${indent}${indent}GET: ${controllerName},\n${indent}},\n};\n`
+        : `export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";\nexport type RouteMap = Record<string, Partial<Record<Method, (req: Bun.BunRequest) => Promise<Response>>>>;\n\n${controllerImport}\n\nexport const ${routeVar}: RouteMap = {\n${indent}"${routeKey}": {\n${indent}${indent}GET: ${controllerName},\n${indent}},\n};\n`;
 
-  if (method === "GET" && url.pathname === "/api/${type}/${routeName}") {
-    return ${controllerName}(request);
+    writeFileSync(routePath, header);
+    console.log(`✔ Route file created: ${routePath}`);
+    return;
   }
 
-  return new Response("Not Found", { status: 404 });
-}`;
-    writeFileSync(filePath, content);
-    console.log(`✔ Route file created: ${filePath}`);
-  } else {
-    console.warn(`✘ Route file already exists: ${filePath}`);
+  let file = readFileSync(routePath, "utf8");
+
+  // Check if route already exists
+  if (file.includes(`"${routeKey}"`)) {
+    console.warn(`✘ Route already exists: ${routeKey}`);
+    return;
   }
+
+  // Add import if missing
+  if (!file.includes(controllerImport)) {
+    const importInsertIndex = file.indexOf("export ");
+    file = `${controllerImport}\n${file.slice(0, importInsertIndex)}${file.slice(importInsertIndex)}`;
+  }
+
+  // Insert route into route object
+  const routeObjectRegex = new RegExp(`export const ${routeVar}:[^{]+{`, "m");
+  const match = routeObjectRegex.exec(file);
+  if (!match) {
+    console.error(`✘ Could not locate route object: ${routeVar}`);
+    return;
+  }
+
+  const objectStartIndex = file.indexOf("{", match.index) + 1;
+  const routeCode = `\n${indent}"${routeKey}": {\n${indent}${indent}GET: ${controllerName},\n${indent}},`;
+
+  file = file.slice(0, objectStartIndex) + routeCode + file.slice(objectStartIndex);
+  writeFileSync(routePath, file);
+  console.log(`✔ Route added to ${routePath}: ${routeKey}`);
 }
 
 function genModel(name: string) {
@@ -64,7 +89,7 @@ export type ${name}Type = typeof ${name}.$inferSelect;`;
 
 function genMiddleware(name: string) {
   const content = `// src/server/middleware/${name}.ts
-export async function ${name}(request: Request): Promise<boolean> {
+export async function ${name}(request: Bun.BunRequest): Promise<boolean> {
   // Add your middleware logic here
   return true;
 }`;
@@ -94,7 +119,7 @@ switch (type) {
     break;
   case "route":
     if (args.length !== 2 || !["guest", "protected"].includes(args[1])) usage();
-    genRouteFile(args[0], args[1] as "guest" | "protected");
+    genRoute(args[0], args[1] as "guest" | "protected");
     break;
   case "model":
     genModel(args[0]);
