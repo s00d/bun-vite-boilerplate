@@ -1,70 +1,48 @@
-import { validateCsrf } from "@/server/middleware/csrf";
-import bcrypt from "bcryptjs";
-import { randomUUIDv7 } from "bun";
-import { eq } from "drizzle-orm";
-import { SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "../../../config/security.config";
 // src/server/controllers/auth.ts
-import { db } from "../db/init";
-import { sessions } from "../models/session";
-import { type User, users } from "../models/user";
+import { validateCsrf } from "@/server/middleware/csrf";
+import { db } from "@/server/db/init";
+import { sessions } from "@/server/models/session";
+import { users, type User } from "@/server/models/user";
+import { SESSION_COOKIE_NAME, SESSION_MAX_AGE } from "../../../config/security.config";
+import { eq } from "drizzle-orm";
+import { randomUUIDv7 } from "bun";
+import bcrypt from "bcryptjs";
+import type { Context } from "elysia";
 
-export async function registerController(request: Bun.BunRequest): Promise<Response> {
+export interface AuthBody {
+  email: string;
+  password: string;
+}
+
+export async function registerController({ body, request, set }: Context<{ body: AuthBody }>) {
   if (!validateCsrf(request)) {
-    return new Response("Invalid CSRF token", { status: 403 });
+    set.status = 403;
+    return { error: "Invalid CSRF token" };
   }
 
-  const { email, password } = await request.json();
-  if (!email || !password) {
-    return Response.json({ error: "Email and password required" }, { status: 400 });
-  }
-
+  const { email, password } = body;
   const existing = db.select().from(users).where(eq(users.email, email)).get();
   if (existing) {
-    return Response.json({ error: "User already exists" }, { status: 409 });
+    set.status = 409;
+    return { error: "User already exists" };
   }
 
-  // const hash = await Bun.password.hash(password); // memory leek
   const hash = bcrypt.hashSync(password, 10);
   const apiKey = randomUUIDv7();
 
-  const inserted = await db.insert(users).values({ email, passwordHash: hash, apiKey }).returning();
+  const inserted = await db
+    .insert(users)
+    .values({ email, passwordHash: hash, apiKey })
+    .returning();
   const user = inserted[0];
-  if (!user) return Response.json({ error: "Registration failed" }, { status: 500 });
-
-  const sessionId = randomUUIDv7();
-  const now = Date.now();
-  const expiresAt = now + 1000 * 60 * 60 * 24; // 24h
-
-  await db.insert(sessions).values({
-    id: sessionId,
-    userId: user.id,
-    createdAt: new Date(now),
-    expiresAt: new Date(expiresAt),
-  });
-
-  const headers = new Headers({
-    "Set-Cookie": `${SESSION_COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; Max-Age=${SESSION_MAX_AGE}`,
-  });
-
-  return new Response(JSON.stringify({ message: "Registered", userId: user.id }), { headers });
-}
-
-export async function loginController(request: Bun.BunRequest): Promise<Response> {
-  if (!validateCsrf(request)) {
-    return new Response("Invalid CSRF token", { status: 403 });
+  if (!user) {
+    set.status = 500;
+    return { error: "Registration failed" };
   }
 
-  const { email, password } = await request.json();
-  const user = db.select().from(users).where(eq(users.email, email)).get();
-  if (!user) return Response.json({ error: "Invalid credentials" }, { status: 401 });
-
-  // const valid = await Bun.password.verify(password, user.passwordHash); // memory leek
-  const valid = bcrypt.compareSync(password, user.passwordHash);
-  if (!valid) return Response.json({ error: "Invalid credentials" }, { status: 401 });
-
   const sessionId = randomUUIDv7();
   const now = Date.now();
-  const expiresAt = now + 1000 * 60 * 60 * 24; // 24h
+  const expiresAt = now + 1000 * 60 * 60 * 24;
 
   await db.insert(sessions).values({
     id: sessionId,
@@ -73,24 +51,47 @@ export async function loginController(request: Bun.BunRequest): Promise<Response
     expiresAt: new Date(expiresAt),
   });
 
-  const headers = new Headers({
-    "Set-Cookie": `${SESSION_COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; Max-Age=${SESSION_MAX_AGE}`,
-  });
-
-  return new Response(JSON.stringify({ message: "Logged in" }), { headers });
-  // return new Response(JSON.stringify({ message: "Logged in" }), {  });
+  set.headers["Set-Cookie"] = `${SESSION_COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; Max-Age=${SESSION_MAX_AGE}`;
+  return { message: "Registered", userId: user.id };
 }
 
-export async function profileController(_: Bun.BunRequest, context: { user: User }): Promise<Response> {
-  const user = db.select().from(users).where(eq(users.id, context.user.id)).get();
-  if (!user) return new Response("Not Found", { status: 404 });
-  return Response.json({ email: user.email, apiKey: user.apiKey });
-}
+export async function loginController({ body, request, set }: Context<{ body: AuthBody }>) {
+  if (!validateCsrf(request)) {
+    set.status = 403;
+    return { error: "Invalid CSRF token" };
+  }
 
-export async function logoutController(_: Bun.BunRequest): Promise<Response> {
-  const headers = new Headers({
-    "Set-Cookie": `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; Max-Age=0`,
+  const { email, password } = body;
+  const user = db.select().from(users).where(eq(users.email, email)).get();
+  if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+    set.status = 401;
+    return { error: "Invalid credentials" };
+  }
+
+  const sessionId = randomUUIDv7();
+  const now = Date.now();
+  const expiresAt = now + 1000 * 60 * 60 * 24;
+
+  await db.insert(sessions).values({
+    id: sessionId,
+    userId: user.id,
+    createdAt: new Date(now),
+    expiresAt: new Date(expiresAt),
   });
 
-  return new Response(JSON.stringify({ message: "Logged out" }), { headers });
+  set.headers["Set-Cookie"] = `${SESSION_COOKIE_NAME}=${sessionId}; Path=/; HttpOnly; Max-Age=${SESSION_MAX_AGE}`;
+  return { message: "Logged in" };
+}
+
+export async function logoutController({ set }: Context) {
+  set.headers["Set-Cookie"] = `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; Max-Age=0`;
+  return { message: "Logged out" };
+}
+
+
+export async function profileController({ user }: { user: User }) {
+  return {
+    email: user.email,
+    apiKey: user.apiKey,
+  };
 }

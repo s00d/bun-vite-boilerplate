@@ -1,4 +1,4 @@
-// src/scripts/gen.ts
+// Updated generator script to match Elysia-based structure and modern routing
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -8,8 +8,10 @@ function ensureDir(path: string) {
 
 function genController(name: string) {
   const content = `// src/server/controllers/${name}.ts
-export async function ${name}Controller(req: Bun.BunRequest): Promise<Response> {
-  return Response.json({ message: "${name} controller works" });
+import type { Context } from 'elysia';
+
+export async function ${name}Controller({}: Context): Promise<any> {
+  return { message: "${name} controller works" };
 }`;
 
   const path = resolve(`src/server/controllers/${name}.ts`);
@@ -20,52 +22,33 @@ export async function ${name}Controller(req: Bun.BunRequest): Promise<Response> 
 function genRoute(name: string, type: "guest" | "protected") {
   const controllerName = `${name}Controller`;
   const routePath = resolve(`src/server/routes/${type}.ts`);
-  const controllerImport = `import { ${controllerName} } from "../controllers/${name}";`;
-  const routeKey = `/api/${type}/${name.toLowerCase()}`;
+  const controllerImport = `import { ${controllerName} } from '@/server/controllers/${name}';`;
 
-  const routeVar = type === "guest" ? "guestRoutes" : "protectedRoute";
-  const indent = "  ";
-
-  // If file doesn't exist — create full boilerplate
   if (!existsSync(routePath)) {
-    const header =
-      type === "protected"
-        ? `import type { User } from "../models/user";\n\nexport type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";\nexport type ProtectedRouteHandler = (req: Bun.BunRequest, ctx: { user: User }) => Promise<Response>;\nexport type ProtectedRouteMap = Record<string, Partial<Record<Method, ProtectedRouteHandler>>>;\n\n${controllerImport}\n\nexport const ${routeVar}: ProtectedRouteMap = {\n${indent}"${routeKey}": {\n${indent}${indent}GET: ${controllerName},\n${indent}},\n};\n`
-        : `export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";\nexport type RouteMap = Record<string, Partial<Record<Method, (req: Bun.BunRequest) => Promise<Response>>>>;\n\n${controllerImport}\n\nexport const ${routeVar}: RouteMap = {\n${indent}"${routeKey}": {\n${indent}${indent}GET: ${controllerName},\n${indent}},\n};\n`;
+    const content = `// src/server/routes/${type}.ts
+import { Elysia } from 'elysia';
+${controllerImport}
 
-    writeFileSync(routePath, header);
+export const ${type}Routes = new Elysia({ prefix: '/api' })
+  .get('/${type}/${name.toLowerCase()}', ${controllerName});
+`;
+    writeFileSync(routePath, content);
     console.log(`✔ Route file created: ${routePath}`);
     return;
   }
 
   let file = readFileSync(routePath, "utf8");
 
-  // Check if route already exists
-  if (file.includes(`"${routeKey}"`)) {
-    console.warn(`✘ Route already exists: ${routeKey}`);
-    return;
-  }
-
-  // Add import if missing
   if (!file.includes(controllerImport)) {
-    const importInsertIndex = file.indexOf("export ");
-    file = `${controllerImport}\n${file.slice(0, importInsertIndex)}${file.slice(importInsertIndex)}`;
+    file = controllerImport + "\n" + file;
   }
 
-  // Insert route into route object
-  const routeObjectRegex = new RegExp(`export const ${routeVar}:[^{]+{`, "m");
-  const match = routeObjectRegex.exec(file);
-  if (!match) {
-    console.error(`✘ Could not locate route object: ${routeVar}`);
-    return;
-  }
-
-  const objectStartIndex = file.indexOf("{", match.index) + 1;
-  const routeCode = `\n${indent}"${routeKey}": {\n${indent}${indent}GET: ${controllerName},\n${indent}},`;
-
-  file = file.slice(0, objectStartIndex) + routeCode + file.slice(objectStartIndex);
+  const insertIndex = file.lastIndexOf(".get(");
+  const routeCode = `\n  .get('/${type}/${name.toLowerCase()}', ${controllerName})`;
+  const insertAt = file.lastIndexOf(";");
+  file = file.slice(0, insertAt) + routeCode + file.slice(insertAt);
   writeFileSync(routePath, file);
-  console.log(`✔ Route added to ${routePath}: ${routeKey}`);
+  console.log(`✔ Route added to ${routePath}`);
 }
 
 function genModel(name: string) {
@@ -89,7 +72,9 @@ export type ${name}Type = typeof ${name}.$inferSelect;`;
 
 function genMiddleware(name: string) {
   const content = `// src/server/middleware/${name}.ts
-export async function ${name}(request: Bun.BunRequest): Promise<boolean> {
+import type { Context } from 'elysia';
+
+export async function ${name}(ctx: Context): Promise<boolean> {
   // Add your middleware logic here
   return true;
 }`;

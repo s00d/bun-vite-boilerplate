@@ -1,12 +1,12 @@
 // src/server/controllers/meta.ts
 const startedAt = new Date();
 
-export async function healthController(): Promise<Response> {
-  return Response.json({ status: "ok" });
+export function healthController() {
+  return { status: "ok" };
 }
 
-export async function infoController(): Promise<Response> {
-  return Response.json({
+export function infoController() {
+  return {
     status: "ok",
     startedAt: startedAt.toISOString(),
     nodeVersion: process.version,
@@ -15,5 +15,5 @@ export async function infoController(): Promise<Response> {
     memoryUsage: process.memoryUsage(),
     uptimeSeconds: process.uptime(),
     cluster: process.env.WORKER_ID,
-  });
+  };
 }

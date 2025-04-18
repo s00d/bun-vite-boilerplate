@@ -1,16 +1,12 @@
 // src/server/routes/protected.ts
-import { logoutController, profileController } from "../controllers/auth";
-import type { User } from "../models/user";
+import { Elysia } from "elysia";
+import { profileController } from "@/server/controllers/auth";
+import { authorize } from "@/server/middleware/auth";
 
-export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-export type ProtectedRouteHandler = (req: Bun.BunRequest, ctx: { user: User }) => Promise<Response>;
-export type ProtectedRouteMap = Record<string, Partial<Record<Method, ProtectedRouteHandler>>>;
-
-export const protectedRoute: ProtectedRouteMap = {
-  "/api/profile": {
-    GET: profileController,
-  },
-  "/api/logout": {
-    POST: logoutController,
-  },
-};
+export const protectedRoutes = new Elysia({ prefix: "/api" })
+  .derive(async ({ request }) => {
+    const { user } = await authorize(request);
+    if (!user) throw new Response("Unauthorized", { status: 401 });
+    return { user };
+  })
+  .get("/profile", profileController);

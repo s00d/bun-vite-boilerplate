@@ -1,96 +1,71 @@
-# 🍞 Bun + Vue 3 + Drizzle Fullstack Template
+# 🍞 Bun + Vue 3 + Drizzle + Elysia Fullstack Template
 
-A full-featured TypeScript boilerplate using **Bun**, **Vue 3** (SSR + SPA), **Drizzle ORM**, and a built-in **WebSocket server**. Designed without Express, this project uses Bun's native HTTP server and SSR capabilities. Ideal for building modern isomorphic applications with authentication, a database, server-side rendering, and real-time communication.
+A full-featured TypeScript boilerplate using **Bun**, **Vue 3** (SSR + SPA), **Drizzle ORM**, **ElysiaJS**, and a built-in **WebSocket server**. Designed without Express or Node.js, this project utilizes **Bun's native HTTP server**, **Vite**, and **Elysia** for modern high-performance development.
+
+Ideal for building isomorphic applications with authentication, real-time features, SSR/SSG, and scalable backend architecture.
 
 ---
 
 ## 🚀 Features
 
+- ✅ Bun-native backend using **Elysia.js**
 - ✅ Fullstack TypeScript (Bun + Vue 3)
 - ✅ SSR + SPA hybrid with Vite
+- ✅ Static Generation (SSG) support
 - ✅ Pinia + SSR hydration
-- ✅ Drizzle ORM
-- ✅ Native WebSocket server (no libraries)
+- ✅ Drizzle ORM (SQLite, MySQL, PostgreSQL)
 - ✅ Session + API key authentication
-- ✅ Clean structure: MVC + Router + Middleware
-- ✅ SSR with preload links and code-splitting
-- ✅ Bun-only (no Node.js or Express)
+- ✅ Native WebSocket server (with Elysia)
+- ✅ Clean architecture: MVC + Router + Middleware
+- ✅ Unified configuration and composables
+- ✅ CSRF protection, CORS, CSP
 
 ---
 
 ## 📁 Project Structure
 
 ```
-data/                         # SQLite database file (default: mydb.sqlite)
-dist/                         # Production build output (SSR + client)
-scripts/                      # Code generation, build, and utility scripts
-tests/                        # Unit, integration, and E2E tests
-public/                       # Static files served as-is (e.g. images)
+data/                         # SQLite DB file (default: mydb.sqlite)
+dist/                         # Production build (client + server bundles)
+scripts/                      # Generation, build, and utility scripts
+tests/                        # Unit, integration, and load tests
+public/                       # Static public assets (e.g., logo, icons)
 .env                          # Environment variable definitions
-index.html                    # SSR HTML template
-config/                      # Configuration files (SSG, WebSocket, security, etc.)
-├── ssg.config.ts           # List of routes for static generation
-├── ws.config.ts            # WebSocket settings (ping interval, timeouts, etc.)
-└── security.config.ts      # Security settings (e.g., allowed origins, CSP, etc.)
+index.html                    # HTML template for SSR rendering
+vite.config.ts                # Vite build configuration
+
+config/                       # Configuration layer
+├── ssg.config.ts             # Static routes for pre-rendering
+├── ws.config.ts              # WebSocket ping/pong settings
+└── security.config.ts        # CORS, CSP, cookie settings
+
 src/
-├── client/                   # Frontend (Vue 3 + Vite + Pinia)
-│   ├── pages/                # File-based routing (SPA + SSR)
-│   │   ├── auth/             # Auth pages (login/register)
-│   │   │    ├── *.vue        # Route components
-│   │   └── *.vue             # Route components
-│   ├── composables/          # Vue composables (e.g., useWebSocket)
-│   ├── store/                # Pinia stores (e.g., user store)
-│   ├── entry-client.ts       # SPA hydration entry
+├── client/                   # Vue 3 SPA (SSR + hydration)
+│   ├── pages/                # File-based routing (SPA/SSR)
+│   ├── composables/          # Vue composables
+│   ├── store/                # Pinia stores
+│   ├── App.vue               # Main layout
+│   ├── main.ts               # App factory
+│   ├── router.ts             # Vue Router config
+│   ├── entry-client.ts       # Client SPA bootstrap
 │   ├── entry-server.ts       # SSR rendering entry
-│   ├── entry-static-client.ts# Static client hydration entry
-│   ├── App.vue               # Root layout component
-│   ├── main.ts               # App factory (shared between SSR/SPA)
-│   ├── router.ts             # Vue Router setup
-│   ├── env.d.ts              # Vue module declaration
-│   └── vite-env.d.ts         # Vite environment declarations
+│   ├── entry-static-client.ts# Static client hydration
+│   ├── env.d.ts              # Type declarations
+│   └── vite-env.d.ts         # Vite typings
 │
-├── server/                   # Backend (Bun HTTP + WebSocket)
-│   ├── db/                   # Database initialization (Drizzle ORM)
-│   │   └── init.ts
-│   ├── models/               # Database schema (Drizzle ORM)
-│   │   ├── schema.ts
-│   │   ├── session.ts
-│   │   └── user.ts
-│   ├── controllers/          # Route handlers (e.g. auth, meta, static)
-│   │   ├── auth.ts
-│   │   ├── meta.ts
-│   ├── middleware/           # Middleware (auth, csrf, etc.)
-│   │   ├── auth.ts
-│   │   └── csrf.ts
-│   ├── routes/               # Route definitions and dispatcher
-│   │   ├── guest.ts
-│   │   ├── meta.ts
-│   │   ├── protected.ts
-│   │   ├── router.ts         # Bun + Vite SSR adapter
-│   ├── utils/                # Utility helpers (file I/O, SSG, preload)
-│   │   ├── files.ts
-│   │   ├── preload.ts
-│   ├── ws/                   # WebSocket server implementation
-│   │   └── server.ts
-│   └── index.ts              # HTTP/WebSocket server entrypoint
+├── server/                   # Bun HTTP + WebSocket + Elysia
+│   ├── db/                   # Drizzle ORM DB init
+│   ├── models/               # Drizzle schemas
+│   ├── middleware/           # CSRF, auth, validation
+│   ├── controllers/          # Route handlers (business logic)
+│   ├── routes/               # API + SSR + WS routes
+│   ├── utils/                # preload, static walker
+│   └── index.ts              # Server entrypoint (Bun + Elysia)
 │
-├── shared/                   # Shared utilities for client/server
-│   ├── axios.ts              # Axios instance with SSR cookie support
-│   ├── env.ts                # PUBLIC_ environment variable reader
-│   └── globalCookieJar.ts    # Server-side cookie cache
-
-
-```
-
----
-
-## 📦 Setup
-
-```bash
-git clone https://github.com/your-org/bun-vue-drizzle-starter.git
-cd bun-vue-drizzle-starter
-bun install
-npx drizzle-kit migrate
+├── shared/                   # Cross-layer utils
+│   ├── axios.ts              # Axios with SSR support
+│   ├── env.ts                # PUBLIC_ environment reader
+│   └── globalCookieJar.ts    # Server cookie holder
 ```
 
 Create `.env`:
@@ -163,16 +138,8 @@ export const posts = sqliteTable('posts', { ... });
 ### A Controller
 Create a handler in `controllers/`:
 ```ts
-export async function dashboardController(req: Bun.BunRequest) {
-  return Response.json({ ok: true });
-}
-```
-
-### A Middleware
-Write in `middleware/`:
-```ts
-export async function auth(req: Bun.BunRequest): Promise<{ user: User | null }> {
-  // logic
+export async function dashboardController({ body, request, set }: Context<{ body: PostBody }>) {
+  return { ok: true };
 }
 ```
 
@@ -180,6 +147,9 @@ export async function auth(req: Bun.BunRequest): Promise<{ user: User | null }> 
 Add to `routes/guest.ts` or `routes/protected.ts`:
 ```ts
 routes['/api/dashboard'] = { GET: dashboardController };
+export const protectedRoutes = new Elysia({ prefix: "/api" })
+//...
+.post("/api/dashboard", dashboardController)
 ```
 
 ### A Generator Script
@@ -198,6 +168,7 @@ bun run scripts/gen.ts middleware MyMiddleware
 ```bash
 bun run dev       # Dev mode with Vite
 bun run build     # Build frontend and SSR bundle
+bun run generate  # Generate frontend and bundle
 bun run start     # Start production server
 ```
 
@@ -284,7 +255,7 @@ db = drizzle(connection, { schema });
 ```
 
 3. **Adapt models in `src/server/models/`** using the corresponding dialect’s schema utilities:
-  - `drizzle-orm/sqlite-core` → `drizzle-orm/mysql-core` or `pg-core`
+- `drizzle-orm/sqlite-core` → `drizzle-orm/mysql-core` or `pg-core`
 
 4. **Install required dependencies**:
 ```bash
@@ -538,9 +509,9 @@ This template supports static pre-rendering (SSG) for selected routes.
    ```
 
    This will:
-  - Build the project using `vite.config.prod.ts`
-  - Render all configured routes to HTML
-  - Save files to `dist/static`
+- Build the project using `vite.config.prod.ts`
+- Render all configured routes to HTML
+- Save files to `dist/static`
 
 4. **Serve the app**:
    ```bash
@@ -552,8 +523,8 @@ This template supports static pre-rendering (SSG) for selected routes.
 ### 🚦 How it works
 
 - When a user requests a page:
-  - If a pre-rendered HTML file exists in `dist/static`, it is served instantly.
-  - Otherwise, the page is rendered via SSR on demand.
+    - If a pre-rendered HTML file exists in `dist/static`, it is served instantly.
+    - Otherwise, the page is rendered via SSR on demand.
 - This ensures fast load for common pages, while keeping SSR flexibility.
 
 ---
@@ -567,13 +538,24 @@ This template supports static pre-rendering (SSG) for selected routes.
 
 _Last updated: April 18, 2025_
 
+---
+
+## 🦊 Powered By
+
+- **[Bun](https://bun.sh/)** — fast all-in-one JS runtime
+- **[Vue 3](https://vuejs.org/)** — reactive UI framework
+- **[Elysia.js](https://elysiajs.com/)** — ultra-fast server framework
+- **[Drizzle ORM](https://orm.drizzle.team/)** — typesafe SQL
+- **[Pinia](https://pinia.vuejs.org/)** — Vue store with SSR support
+- **[Vite](https://vitejs.dev/)** — dev/build tool
 
 ---
 
 ## 📜 License
 
-MIT ©s00d
+MIT © s00d
 
 ---
 
 Pull requests and contributions welcome.
+

@@ -46,7 +46,7 @@ export function useWebSocket() {
 
   function send(msg: string) {
     if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(msg);
+      socket.send(JSON.stringify({ message: msg }));
     }
   }
 

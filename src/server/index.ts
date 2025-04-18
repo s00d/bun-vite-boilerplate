@@ -1,10 +1,13 @@
-import "dotenv/config";
-
-import { serve } from "bun";
-import { SESSION_COOKIE_NAME } from "../../config/security.config";
-import { initDb } from "./db/init";
-import { generateRoutes, handleRequest } from "./routes/router";
-import { setupWebSocket } from "./ws/server";
+import { Elysia } from "elysia";
+import { staticPlugin } from "@elysiajs/static";
+import { cookie } from "@elysiajs/cookie";
+import { swagger } from "@elysiajs/swagger";
+import { guestRoutes } from "./routes/guest";
+import { metaRoutes } from "./routes/meta";
+import { protectedRoutes } from "./routes/protected";
+import { wsRoutes } from "./routes/ws";
+import { ssr } from "./routes/ssr";
+import {initDb} from "@/server/db/init";
 
 try {
   await initDb();
@@ -13,29 +16,31 @@ try {
   process.exit(1);
 }
 
-const server = serve({
-  port: process.env.PORT ? Number(process.env.PORT) : 3000,
-  hostname: process.env.HOST ? process.env.HOST : "localhost",
-  reusePort: true,
-  routes: generateRoutes(),
-  development: process.env.NODE_ENV !== "production",
-  async fetch(request, server) {
-    const url = new URL(request.url);
+const port = process.env.PORT ? Number(process.env.PORT) : 3000
+const hostname = process.env.HOST ? process.env.HOST : "localhost"
 
-    if (url.pathname === "/ws" && request.headers.get("upgrade") === "websocket") {
-      const cookie = request.headers.get("cookie") || "";
-      const cookies = Object.fromEntries(cookie.split("; ").map((s) => s.split("=")));
-      const sessionId = cookies[SESSION_COOKIE_NAME];
-
-      server.upgrade(request, {
-        data: { sessionId },
-      });
-
-      return undefined;
+const app = new Elysia()
+  .use(staticPlugin({ prefix: "/" }))
+  .use(cookie())
+  .use(swagger({
+    documentation: {
+      info: {
+        title: 'bun-vite-boilerplate',
+        version: '1.0.0'
+      }
     }
-    return handleRequest(request);
-  },
-  websocket: setupWebSocket(),
-});
+  }))
+  .use(guestRoutes)
+  .use(metaRoutes)
+  .use(protectedRoutes)
+  .use(wsRoutes)
+  .use(ssr)
+  .onError(({ code, error }) => {
+    if (code === "NOT_FOUND") return "Page not found";
+    console.error(error);
+  })
+  .listen({ port, hostname });;
 
-console.log(`🚀 Server running at http://${server.hostname}:${server.port}`);
+console.log(
+  `🦊 Elysia is running at http://${app.server?.hostname}:${app.server?.port}`
+);

@@ -1,14 +1,12 @@
-// src/server/routes/guest.ts
+// src/server/routes/meta.ts
+import { Elysia } from "elysia";
 import { healthController, infoController } from "@/server/controllers/meta";
+import { cors } from '@elysiajs/cors'
 
-export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-export type RouteMap = Record<string, Partial<Record<Method, (req: Request) => Promise<Response>>>>;
-
-export const metaRoute: RouteMap = {
-  "/meta/health": {
-    GET: healthController,
-  },
-  "/meta/info": {
-    GET: infoController,
-  },
-};
+export const metaRoutes = new Elysia({ prefix: "/meta" })
+  .get("/health", healthController)
+  .get("/info", infoController)
+  .use(cors({
+    origin: true, // или указать RegExp, строку, массив и т.д.
+    credentials: true // если нужно передавать куки
+  }));
