@@ -97,8 +97,10 @@ Create `.env`:
 
 ```
 PORT=8888
-DB_FILE_NAME=./data.sqlite
+HOST=localhost
+DB_FILE_NAME=data/mydb.sqlite
 PUBLIC_API_URL=http://localhost:8888
+PUBLIC_WS_URL=ws://localhost:8888/ws
 ```
 
 Start in dev:
