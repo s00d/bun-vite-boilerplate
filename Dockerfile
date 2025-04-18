@@ -1,5 +1,5 @@
 # Dockerfile
-FROM oven/bun:1.0.30 as base
+FROM oven/bun:1.2.10 as base
 WORKDIR /app
 COPY . .
 
@@ -7,10 +7,10 @@ COPY . .
 RUN bun install
 
 # Сборка клиента
-RUN bun run vite build
+RUN bun run build
 
 # Production stage
-FROM oven/bun:1.0.30 as prod
+FROM oven/bun:1.2.10 as prod
 WORKDIR /app
 COPY --from=base /app /app
 
