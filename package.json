@@ -21,10 +21,13 @@
     "artillery:homepage": "npx artillery run scripts/artillery-homepage.yml"
   },
   "dependencies": {
+    "@bogeychan/elysia-logger": "^0.1.8",
     "@elysiajs/cookie": "^0.8.0",
     "@elysiajs/cors": "^1.2.0",
+    "@elysiajs/cron": "^1.2.0",
     "@elysiajs/static": "^1.2.0",
     "@elysiajs/swagger": "^1.2.2",
+    "@sinclair/typebox": "^0.34.33",
     "@vue/server-renderer": "^3.5.13",
     "@vueuse/head": "^2.0.0",
     "axios": "^1.8.4",
@@ -33,9 +36,14 @@
     "dotenv": "^16.5.0",
     "drizzle-kit": "^0.31.0",
     "drizzle-orm": "^0.42.0",
+    "drizzle-typebox": "^0.3.2",
     "elysia": "^1.2.25",
+    "elysia-i18next": "^4.0.3",
+    "i18next": "^25.0.0",
+    "i18next-fs-backend": "^2.6.0",
     "pinia": "^3.0.2",
     "vue": "^3.5.13",
+    "vue-i18n": "^11.1.3",
     "vue-router": "^4.5.0",
     "ws": "^8.18.1"
   },

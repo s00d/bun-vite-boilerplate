@@ -13,14 +13,15 @@ import { staticRoutes } from "../config/ssg.config";
 import manifest from "../dist/server/.vite/ssr-manifest.json" assert { type: "json" };
 // scripts/generateStatic.ts
 // @ts-expect-error no types from Vite SSR build
-import { render } from "../dist/server/entry-server.js"; // SSR-рендерер
+import { render } from "../dist/server/entry-server.js";
+import {SECURITY_CONFIG} from "../config/security.config"; // SSR-рендерер
 
 const outDir = resolve(process.cwd(), "dist/static");
 const template = await Bun.file("dist/client/index.html").text();
 
 async function generate() {
   for (const route of staticRoutes) {
-    const headers = new Headers({ cookie: `csrf=${generateCsrfToken()}` });
+    const headers = new Headers({ cookie: `${SECURITY_CONFIG.csrfHeaderName}=${generateCsrfToken()}` });
     const { html, state, preloadLinks, env, headTags } = await render(route, headers, manifest);
 
     const pageHtml = template

@@ -4,6 +4,7 @@ import type { HeadTag } from "@unhead/schema";
 import { renderToString } from "@vue/server-renderer";
 import { createApp } from "./main";
 import { useUserStore } from "./store/user";
+import { installI18n } from "./plugins/i18n";
 
 export function renderPreloadLinks(modules: Set<string>, manifest: Record<string, string[]>) {
   const seen = new Set();
@@ -44,11 +45,6 @@ export async function render(url: string, headers: Headers, manifest: Record<str
 
   setGlobalCookie(headers.get("cookie"));
 
-  await router.push(url);
-  await router.isReady();
-
-  const store = useUserStore(pinia);
-  await store.get();
 
   const ctx: { modules?: Set<string> } = {};
   const html = await renderToString(app, ctx);
@@ -57,15 +53,21 @@ export async function render(url: string, headers: Headers, manifest: Record<str
   const state = JSON.stringify(pinia.state.value);
   const preloadLinks = renderPreloadLinks(ctx.modules || new Set(), manifest);
 
-  // 🔽 собираем только PUBLIC_ переменные
   const env: Record<string, string> = {};
   for (const key in process.env) {
-    if (key.startsWith("PUBLIC_")) {
-      if (process.env[key] !== undefined) {
-        env[key] = process.env[key];
-      }
+    if (key.startsWith("PUBLIC_") && process.env[key] !== undefined) {
+      env[key] = process.env[key];
     }
   }
+
+  await router.push(url);
+  await router.isReady();
+
+  await installI18n(app, router); // <--- здесь тоже
+
+  const store = useUserStore(pinia);
+  await store.get();
+
 
   return { html, state, preloadLinks, env, headTags };
 }

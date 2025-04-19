@@ -1,9 +1,9 @@
 import { and, eq, gt } from "drizzle-orm";
-import { SESSION_COOKIE_NAME } from "../../../config/security.config";
 // src/server/middleware/auth.ts
 import { db } from "../db/init";
 import { sessions } from "../models/session";
 import { type User, users } from "../models/user";
+import {SECURITY_CONFIG} from "../../../config/security.config";
 
 export async function authorize(request: Request): Promise<{ user: User | null }> {
   return getUserFromHeaders({
@@ -19,7 +19,7 @@ export async function getUserFromHeaders(headers: {
   apiKey?: string | null;
 }): Promise<{ user: User | null }> {
   const cookies = parseCookies(headers.cookie);
-  const sessionId = cookies[SESSION_COOKIE_NAME];
+  const sessionId = cookies[SECURITY_CONFIG.sessionCookieName];
 
   if (sessionId) {
     const now = new Date();

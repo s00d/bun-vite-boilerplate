@@ -1,4 +1,21 @@
-export const CSRF_COOKIE_NAME = "csrf";
-export const SESSION_COOKIE_NAME = "sessionId";
-export const CSRF_HEADER_NAME = "x-csrf-token";
-export const SESSION_MAX_AGE = 86400; // 24h
+export const SECURITY_CONFIG = {
+  /**
+   * Name of the CSRF token cookie
+   */
+  csrfCookieName: "csrf",
+
+  /**
+   * Name of the CSRF token header
+   */
+  csrfHeaderName: "x-csrf-token",
+
+  /**
+   * Name of the session ID cookie
+   */
+  sessionCookieName: "sessionId",
+
+  /**
+   * Session expiration time in seconds (24 hours)
+   */
+  sessionMaxAge: 86400,
+};

@@ -1,12 +1,12 @@
 import { Elysia, t } from "elysia";
 import { getUserFromHeaders } from "@/server/middleware/auth";
-import { SESSION_COOKIE_NAME } from "../../../config/security.config";
+import {SECURITY_CONFIG} from "../../../config/security.config";
 
 export const wsRoutes = new Elysia()
   .derive(async ({ headers }) => {
     const cookieHeader = headers.cookie ?? "";
     const cookies = Object.fromEntries(cookieHeader.split("; ").map((s) => s.split("=")));
-    const sessionId = cookies[SESSION_COOKIE_NAME];
+    const sessionId = cookies[SECURITY_CONFIG.sessionCookieName];
 
     let email = "guest";
     if (sessionId) {

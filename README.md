@@ -38,6 +38,7 @@ config/                       # Configuration layer
 ├── ssg.config.ts             # Static routes for pre-rendering
 ├── ws.config.ts              # WebSocket ping/pong settings
 └── security.config.ts        # CORS, CSP, cookie settings
+└── i18n.config.ts            # i18n config
 
 src/
 ├── client/                   # Vue 3 SPA (SSR + hydration)
@@ -301,6 +302,119 @@ During server-side rendering, the generated tags are serialized and injected int
 
 No extra configuration is needed — SSR automatically includes the result of `useHead()` in the response.
 
+---
+
+## 🌐 Internationalization (i18n)
+
+Localization is powered by `vue-i18n`, integrated with **SSR + SPA** support and **automatic translation loading based on the current route**.
+
+---
+
+### 📌 Overview
+
+- Translations are organized by **locale** and **namespace**, e.g.  
+  `lang/en/home.json`, `lang/ru/profile.json`
+- The namespace is automatically derived from the route:
+    - `/en/profile` → namespace: `profile`
+    - `/auth/login` → namespace: `auth`
+    - `/` → namespace: `home` (default)
+
+🔁 **On the client, translations are automatically loaded based on the current page name**. You don't need to manually specify a namespace — it's inferred from the URL.
+
+---
+
+### 🧠 Usage in Components
+
+```ts
+import { useI18n } from "vue-i18n";
+const { t } = useI18n();
+
+t("home.title"); // => "Home" (en), "Главная" (ru)
+```
+
+---
+
+### 📦 Key Format
+
+- All translation keys use the format `namespace.key`
+- Translations are fetched dynamically based on the current route
+
+---
+
+### 🌍 Switching Locale
+
+The `<LocaleSwitcher />` component changes the current language via redirect:
+
+```vue
+<LocaleSwitcher />
+```
+
+- The **default locale** (`en`) has no prefix
+- Other locales use a prefixed path (`/ru/...`)
+
+---
+
+### ⚙️ Adding Translations
+
+#### ➕ Adding a New Namespace
+
+When creating a new translation file (e.g. `lang/en/dashboard.json`, `lang/ru/dashboard.json`):
+
+> Make sure to add the new **namespace** in `config/i18n.config.ts`:
+
+```ts
+namespaces: ["common", "auth", "profile", "meta", "home", "dashboard"],
+```
+
+#### ➕ Adding a New Locale
+
+When adding a new locale (e.g. `de`):
+
+> Update the i18n config to include it:
+
+```ts
+preload: ["en", "ru", "de"],
+supportedLngs: ["en", "ru", "de"],
+```
+
+Ensure the corresponding translation files exist:
+
+```
+lang/de/home.json
+lang/de/common.json
+...
+```
+
+---
+
+### 🖥️ Using i18n on the Backend
+
+To use a translation inside a backend controller or handler, use the `t()` function provided in the context. You must reference translations using the `namespace:key` format.
+
+#### ✅ Example
+
+```ts
+export function healthController({ t }: { t: TFunction }) {
+  return {
+    message: t("meta:health"),
+  };
+}
+```
+
+> This will return a translated string from `lang/{locale}/meta.json` under the key `"health"`.
+
+--- 
+
+Let me know if you'd like to add an example of pluralization or interpolation too.
+
+### ✅ Summary
+
+- Use `t("namespace.key")` for all translation calls
+- **Namespace is resolved automatically from the route**
+- Translations are loaded dynamically as needed
+- Update `config/i18n.config.ts` when adding new locales or namespaces
+
+---
 
 ---
 
@@ -448,46 +562,6 @@ Given the SQLite backend and SSR integration, the Bun server delivers:
 - **Excellent RPS handling** in raw conditions without frontend or I/O overhead.
 
 These results confirm that the backend powered by **Bun is highly capable under load**, especially when isolated from rendering or database operations.
-
----
-
-## ⚙️ Configuration
-
-All project configuration is centralized in the `config/` directory.
-
-### 📄 `config/ssg.config.ts`
-
-```ts
-export const staticRoutes = ["/", "/about", "/profile", "/chat", "/auth/login", "/auth/register"];
-```
-
-Used by `scripts/generateStaticPages.ts` to pre-render selected routes as static HTML files during production build.
-
----
-
-### 📄 `config/ws.config.ts`
-
-```ts
-export const WS_CONFIG = {
-  pingInterval: 30_000,
-  pongTimeout: 10_000,
-};
-```
-
-Used by the WebSocket server (`src/server/ws/server.ts`) to manage keep-alive and timeouts for active connections.
-
----
-
-### 📄 `config/security.config.ts`
-
-```ts
-export const SECURITY_CONFIG = {
-  allowedOrigins: ["http://localhost:8888"],
-  contentSecurityPolicy: "default-src 'self'; script-src 'self';",
-};
-```
-
-Used across the server for CORS, CSP headers, and request validation.
 
 ---
 

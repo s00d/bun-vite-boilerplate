@@ -1,0 +1,10 @@
+{
+  "title": "Home Page",
+  "welcome": "Welcome to the app.",
+  "go_to_profile": "Go to profile",
+  "logged_in": "You are logged in",
+  "logout": "Logout",
+  "login": "Login",
+  "register": "Register",
+  "counter": "Counter"
+}

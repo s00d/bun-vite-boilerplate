@@ -1,5 +1,10 @@
-// src/client/router.ts
-import { createRouter as _createRouter, createMemoryHistory, createWebHistory } from "vue-router";
+import {
+  createRouter as _createRouter,
+  createMemoryHistory,
+  createWebHistory,
+  type RouteRecordRaw
+} from "vue-router";
+
 import AboutPage from "./pages/AboutPage.vue";
 import ChatPage from "./pages/ChatPage.vue";
 import HomePage from "./pages/HomePage.vue";
@@ -8,18 +13,33 @@ import ProfilePage from "./pages/ProfilePage.vue";
 import LoginPage from "./pages/auth/LoginPage.vue";
 import RegisterPage from "./pages/auth/RegisterPage.vue";
 
+const baseRoutes: RouteRecordRaw[] = [
+  { path: "", component: HomePage },
+  { path: "profile", component: ProfilePage },
+  { path: "chat", component: ChatPage },
+  { path: "about", component: AboutPage },
+  { path: "auth/login", component: LoginPage },
+  { path: "auth/register", component: RegisterPage },
+];
+
+// локализованные маршруты
+const routes: RouteRecordRaw[] = [
+  {
+    path: "/:locale([a-zA-Z0-9_-]+)?", // локаль необязательна
+    children: baseRoutes,
+  },
+  {
+    path: "/:pathMatch(.*)*",
+    name: "NotFound",
+    component: NotFoundPage,
+  },
+];
+
 export function createRouter() {
   const isServer = typeof window === "undefined";
+
   return _createRouter({
     history: isServer ? createMemoryHistory() : createWebHistory(),
-    routes: [
-      { path: "/", component: HomePage },
-      { path: "/profile", component: ProfilePage },
-      { path: "/chat", component: ChatPage },
-      { path: "/about", component: AboutPage },
-      { path: "/auth/login", component: LoginPage },
-      { path: "/auth/register", component: RegisterPage },
-      { path: "/:pathMatch(.*)*", name: "NotFound", component: NotFoundPage },
-    ],
+    routes,
   });
 }

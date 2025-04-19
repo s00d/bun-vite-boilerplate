@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { generateCsrfToken } from "@/server/middleware/csrf";
 import vue from "@vitejs/plugin-vue";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import {SECURITY_CONFIG} from "../../../config/security.config";
 
 const STATIC_DIR = resolve(process.cwd(), "./dist/static");
 const CLIENT_DIR = resolve(process.cwd(), "./dist/client");
@@ -140,6 +141,8 @@ export const ssr = new Elysia().get("*", async ({ request, set }) => {
     pathname.startsWith("/@id/") ||
     pathname.match(/\.(js|ts|jsx|tsx|css|json|map|svg|png|jpg|jpeg|gif|webp|woff2?|ttf)$/)
   ) {
+    set.headers["Content-Type"] = "text/html";
+    set.headers["Set-Cookie"] = `${SECURITY_CONFIG.csrfHeaderName}=${generateCsrfToken()}; Path=/; SameSite=Strict`;
     if (viteMiddleware) {
       return await adaptNodeMiddleware(viteMiddleware)(request);
     } else {
@@ -171,7 +174,7 @@ export const ssr = new Elysia().get("*", async ({ request, set }) => {
       const staticHtml = Bun.file(htmlFilePath);
       if (await staticHtml.exists()) {
         set.headers["Content-Type"] = "text/html";
-        set.headers["Set-Cookie"] = `csrf=${generateCsrfToken()}; Path=/; SameSite=Strict`;
+        set.headers["Set-Cookie"] = `${SECURITY_CONFIG.csrfHeaderName}=${generateCsrfToken()}; Path=/; SameSite=Strict`;
         return staticHtml;
       }
     } catch (err) {
@@ -190,7 +193,7 @@ export const ssr = new Elysia().get("*", async ({ request, set }) => {
       .replace("<!--ssr-env-->", `<script>window.__env = ${JSON.stringify(env)}</script>`);
 
     set.headers["Content-Type"] = "text/html";
-    set.headers["Set-Cookie"] = `csrf=${generateCsrfToken()}; Path=/; SameSite=Strict`;
+    set.headers["Set-Cookie"] = `${SECURITY_CONFIG.csrfHeaderName}=${generateCsrfToken()}; Path=/; SameSite=Strict`;
     return fullHtml;
   } catch (err) {
     console.error("SSR render error:", err);
