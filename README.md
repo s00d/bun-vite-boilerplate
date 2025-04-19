@@ -19,7 +19,12 @@ Ideal for building isomorphic applications with authentication, real-time featur
 - ✅ Clean architecture: MVC + Router + Middleware
 - ✅ Unified configuration and composables
 - ✅ CSRF protection, CORS, CSP
-
+- ✅ **i18n with dynamic translation loading**
+    - 🌐 Auto-detect locale from route
+    - 📦 Load only necessary translation namespace per page
+    - 🧠 SSR/SSG compatible
+    - 🧩 Backend integration via `i18next-fs-backend` and Elysia route
+  
 ---
 
 ## 📁 Project Structure
