@@ -1,7 +1,0 @@
-{
-  "success": false,
-  "errors": "✗ Build failed in 7ms\nerror during build:\nCould not resolve entry module \"index.html\".\n    at getRollupError (file:///Users/s00d/packeges/bun-rolldown-boilerplate/node_modules/rollup/dist/es/shared/parseAst.js:397:41)\n    at error (file:///Users/s00d/packeges/bun-rolldown-boilerplate/node_modules/rollup/dist/es/shared/parseAst.js:393:42)\n    at ModuleLoader.loadEntryModule (file:///Users/s00d/packeges/bun-rolldown-boilerplate/node_modules/rollup/dist/es/shared/node-entry.js:21349:20)\n    at async Promise.all (index 0)\n",
-  "timestamp": "2025-04-16 20:19:07",
-  "vite_ruby": "3.8.0",
-  "digest": "26a652aa32cbeadfaddd54860a079eaa196268c5"
-}

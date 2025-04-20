@@ -1,34 +1,23 @@
 <template>
-  <div>
-    <h1>WebSocket Chat</h1>
-    <div v-for="(msg, i) in messages" :key="i" class="message">{{ msg }}</div>
-    <input v-model="input" @keydown.enter="sendMessage" placeholder="Type message" />
+  <div class="min-h-screen flex flex-col items-center justify-center bg-surface text-foreground px-6 text-center">
+    <h1 class="text-3xl font-bold mb-2 text-error">404 — Page Not Found</h1>
+    <p class="text-muted-foreground mb-6">
+      The page you're looking for doesn't exist or has been moved.
+    </p>
+    <router-link
+      to="/"
+      class="btn btn-solid px-4 py-2 text-white bg-primary hover:bg-primary/90 rounded"
+    >
+      ← Go back home
+    </router-link>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
-import { useWebSocket } from "../composables/useWebSocket";
+import { useHead } from "@vueuse/head";
 
-const { messages, send } = useWebSocket();
-const input = ref("");
-
-function sendMessage() {
-  if (!input.value) return;
-  send(input.value);
-  input.value = "";
-}
+useHead({
+  title: "Page Not Found",
+  meta: [{ name: "robots", content: "noindex" }],
+});
 </script>
-
-<style scoped>
-.message {
-  padding: 4px;
-  border-bottom: 1px solid #ddd;
-}
-input {
-  margin-top: 8px;
-  padding: 4px;
-  width: 50%;
-}
-</style>
-

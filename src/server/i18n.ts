@@ -2,6 +2,7 @@
 import i18n from 'i18next';
 import Backend from 'i18next-fs-backend';
 import {I18N_CONFIG} from "../../config/i18n.config";
+import {resolve} from "node:path";
 
 await i18n
   .use(Backend)
@@ -13,7 +14,7 @@ await i18n
     ns: I18N_CONFIG.namespaces,
     defaultNS: I18N_CONFIG.defaultNS,
     backend: {
-      loadPath: `${I18N_CONFIG.localesPath}/{{lng}}/{{ns}}.json`,
+      loadPath: resolve(process.cwd(), `${I18N_CONFIG.localesPath}/{{lng}}/{{ns}}.json`),
     },
     interpolation: {
       escapeValue: false,

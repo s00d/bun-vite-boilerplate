@@ -9,7 +9,7 @@
 // глобальные импорты или provide/inject если нужно
 </script>
 
-<style scoped>
+<style lang="scss">
 body {
   margin: 0;
   font-family: system-ui, sans-serif;

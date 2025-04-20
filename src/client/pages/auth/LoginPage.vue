@@ -1,13 +1,33 @@
-<!-- src/client/pages/auth/LoginPage.vue -->
 <template>
-  <div>
-    <h1>Login</h1>
-    <form @submit.prevent="login">
-      <input v-model="email" type="email" placeholder="Email" required />
-      <input v-model="password" type="password" placeholder="Password" required />
-      <button type="submit">Login</button>
+  <div class="max-w-md mx-auto px-6 py-10 bg-surface text-foreground rounded shadow space-y-6">
+    <h1 class="text-2xl font-bold text-center">Login</h1>
+
+    <form @submit.prevent="login" class="space-y-4">
+      <input
+        v-model="email"
+        type="email"
+        placeholder="Email"
+        required
+        class="w-full px-4 py-2 border border-border rounded bg-input text-foreground placeholder:text-muted-foreground"
+      />
+      <input
+        v-model="password"
+        type="password"
+        placeholder="Password"
+        required
+        class="w-full px-4 py-2 border border-border rounded bg-input text-foreground placeholder:text-muted-foreground"
+      />
+      <button type="submit" class="w-full btn btn-solid py-2">
+        Login
+      </button>
     </form>
-    <router-link to="/auth/register">Don't have an account? Register</router-link>
+
+    <p class="text-center text-sm text-muted-foreground">
+      Don’t have an account?
+      <router-link to="/auth/register" class="text-link hover:underline ml-1">
+        Register
+      </router-link>
+    </p>
   </div>
 </template>
 

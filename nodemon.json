@@ -1,8 +1,0 @@
-{
-  "watch": ["public", "src"],
-  "ext": "ts,js,json,vue,html,css",
-  "ignore": ["public/static-client", "dist", ".temp", "node_modules"],
-  "exec": "bun run src/server/index.ts",
-  "restartable": "rs",
-  "delay": 300
-}

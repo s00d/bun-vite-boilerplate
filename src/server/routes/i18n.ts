@@ -1,19 +1,19 @@
 // src/server/routes/i18n.ts
 import { Elysia, t } from "elysia";
-import { resolve } from "path";
+import { resolve } from "node:path";
 import type { Context, RouteSchema } from "elysia";
 import type { Logger } from "@bogeychan/elysia-logger/types";
 import type { TFunction, i18n as I18NextInstance } from "i18next";
-import { db } from "@/server/db/init";
+import type { db } from "@/server/db/init";
 
-export type AppContext<T extends Partial<RouteSchema> = {}> = Context<T> & {
+export type AppContext<T extends Partial<RouteSchema> = Partial<RouteSchema>> = Context<T> & {
   log: Logger;
   db: typeof db;
   t: TFunction;
   i18n: I18NextInstance;
 };
 
-export const i18nRoutes = new Elysia({ prefix: "/api/i18n" }).get(
+export const i18nRoutes = new Elysia({ prefix: "/api/i18n", tags: ["i18n"] }).get(
   "/",
   async ({
            i18n,

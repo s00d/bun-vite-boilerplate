@@ -1,11 +1,15 @@
 <template>
-  <main>
-    <h1>About</h1>
+  <main class="max-w-xl mx-auto px-6 py-8 bg-surface text-foreground rounded shadow space-y-6">
+    <h1 class="text-2xl font-bold">About</h1>
 
-    <section class="buttons">
-      <button @click="increment">Increment</button>
-      <button @click="reset">Reset</button>
-      <p>Count: {{ count }}</p>
+    <section class="space-y-4">
+      <div class="flex gap-3">
+        <button @click="increment" class="btn btn-solid px-4 py-2">Increment</button>
+        <button @click="reset" class="btn btn-outline px-4 py-2">Reset</button>
+      </div>
+      <p class="text-lg">
+        Count: <span class="font-semibold text-primary">{{ count }}</span>
+      </p>
     </section>
   </main>
 </template>
@@ -30,21 +34,3 @@ function reset() {
   console.log("🔁 Count reset");
 }
 </script>
-
-<style scoped>
-.buttons {
-  margin-top: 2rem;
-}
-button {
-  margin-right: 1rem;
-  padding: 0.5rem 1rem;
-  background: #f60;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-button:hover {
-  background: #d45000;
-}
-</style>

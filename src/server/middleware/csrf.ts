@@ -9,12 +9,13 @@ export function generateCsrfToken(): string {
 export function getCsrfTokenFromCookie(cookie: string | null): string | null {
   if (!cookie) return null;
   const parsed = Object.fromEntries(cookie.split("; ").map((s) => s.split("=")));
-  return parsed.csrf || null;
+  return parsed[SECURITY_CONFIG.csrfCookieName] || null;
 }
 
 export function validateCsrf(request: Request): boolean {
   const cookie = request.headers.get("cookie");
   const csrfCookie = getCsrfTokenFromCookie(cookie);
+  console.log(1111, csrfCookie)
   const csrfHeader = request.headers.get(SECURITY_CONFIG.csrfHeaderName);
   if (!csrfCookie || !csrfHeader) return false;
   return csrfCookie === csrfHeader;

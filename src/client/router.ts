@@ -25,7 +25,7 @@ const baseRoutes: RouteRecordRaw[] = [
 // локализованные маршруты
 const routes: RouteRecordRaw[] = [
   {
-    path: "/:locale([a-zA-Z0-9_-]+)?", // локаль необязательна
+    path: "/:locale([a-z]{2})?", // локаль необязательна
     children: baseRoutes,
   },
   {

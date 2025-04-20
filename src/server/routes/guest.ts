@@ -7,7 +7,7 @@ import {
 } from "@/server/controllers/auth";
 import {validateCsrf} from "@/server/middleware/csrf";
 
-export const guestRoutes = new Elysia({ prefix: "/api" })
+export const guestRoutes = new Elysia({ prefix: "/api", tags: ["guest"] })
   .model({
     credentials: t.Object({
       email: t.String({ format: "email" }),

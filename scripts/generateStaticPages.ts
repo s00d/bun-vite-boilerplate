@@ -1,27 +1,54 @@
-import { build } from "vite";
-
-// перед началом генерации
-await build({
-  configFile: resolve(process.cwd(), "vite.config.prod.ts"),
-});
-
-// scripts/generateStatic.ts
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { generateCsrfToken } from "@/server/middleware/csrf";
 import { staticRoutes } from "../config/ssg.config";
 import manifest from "../dist/server/.vite/ssr-manifest.json" assert { type: "json" };
-// scripts/generateStatic.ts
+import { SECURITY_CONFIG } from "../config/security.config";
 // @ts-expect-error no types from Vite SSR build
 import { render } from "../dist/server/entry-server.js";
-import {SECURITY_CONFIG} from "../config/security.config"; // SSR-рендерер
 
 const outDir = resolve(process.cwd(), "dist/static");
 const template = await Bun.file("dist/client/index.html").text();
 
+function startServer(): { process: Bun.Subprocess; ready: Promise<void> } {
+  const proc = Bun.spawn(["bun", "start"], {
+    stdout: "pipe",
+    stderr: "inherit",
+  });
+
+  const ready = (async () => {
+    if (!proc.stdout) return;
+
+    const reader = proc.stdout.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const output = decoder.decode(value);
+      process.stdout.write(output); // опционально: дублируем в консоль
+
+      if (output.includes("Elysia is running at")) {
+        break;
+      }
+    }
+  })();
+
+  return { process: proc, ready };
+}
+
 async function generate() {
+  const { process: serverProcess, ready } = startServer();
+  await ready;
+
+  console.log("🔄 Bun server ready. Starting static generation...");
+
   for (const route of staticRoutes) {
-    const headers = new Headers({ cookie: `${SECURITY_CONFIG.csrfHeaderName}=${generateCsrfToken()}` });
+    const headers = new Headers({
+      cookie: `${SECURITY_CONFIG.csrfHeaderName}=${generateCsrfToken()}`,
+    });
+
     const { html, state, preloadLinks, env, headTags } = await render(route, headers, manifest);
 
     const pageHtml = template
@@ -36,6 +63,9 @@ async function generate() {
     await writeFile(filePath, pageHtml);
     console.log(`✅ Generated ${filePath}`);
   }
+
+  console.log("⏹️ Killing Bun server...");
+  serverProcess.kill();
 }
 
 await generate();

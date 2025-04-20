@@ -1,10 +1,16 @@
-import { setGlobalCookie } from "@/shared/globalCookieJar";
 // src/client/entry-server.ts
+import { setGlobalCookie } from "@/shared/globalCookieJar";
 import type { HeadTag } from "@unhead/schema";
 import { renderToString } from "@vue/server-renderer";
 import { createApp } from "./main";
 import { useUserStore } from "./store/user";
-import { installI18n } from "./plugins/i18n";
+import {
+  setupI18n,
+  getLocaleFromPath,
+  getNamespaceFromPath,
+  loadLocaleNamespace,
+  setI18nLanguage
+} from "./plugins/i18n";
 
 export function renderPreloadLinks(modules: Set<string>, manifest: Record<string, string[]>) {
   const seen = new Set();
@@ -45,6 +51,20 @@ export async function render(url: string, headers: Headers, manifest: Record<str
 
   setGlobalCookie(headers.get("cookie"));
 
+  const locale = getLocaleFromPath(url);
+  const namespace = getNamespaceFromPath(url);
+
+  const i18n = setupI18n(locale);
+  app.use(i18n);
+
+  await loadLocaleNamespace(i18n, locale, namespace);
+  setI18nLanguage(i18n, locale);
+
+  await router.push(url);
+  await router.isReady();
+
+  const store = useUserStore(pinia);
+  await store.get();
 
   const ctx: { modules?: Set<string> } = {};
   const html = await renderToString(app, ctx);
@@ -60,14 +80,5 @@ export async function render(url: string, headers: Headers, manifest: Record<str
     }
   }
 
-  await router.push(url);
-  await router.isReady();
-
-  await installI18n(app, router); // <--- здесь тоже
-
-  const store = useUserStore(pinia);
-  await store.get();
-
-
-  return { html, state, preloadLinks, env, headTags };
+  return { html, state, preloadLinks, env, headTags, locale };
 }

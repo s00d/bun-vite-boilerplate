@@ -1,10 +1,9 @@
-import { resolve } from "node:path";
 
 export const I18N_CONFIG = {
   /**
    * Absolute path to the directory with translation files (e.g. lang/en/common.json)
    */
-  localesPath: resolve(process.cwd(), "lang"),
+  localesPath: "lang",
 
   /**
    * Default language to use if the request language cannot be determined

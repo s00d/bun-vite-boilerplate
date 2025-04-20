@@ -15,7 +15,7 @@ export interface AuthBody {
   password: string;
 }
 
-export type AppContext<T extends Partial<RouteSchema> = {}> = Context<T> & {
+export type AppContext<T extends Partial<RouteSchema> = Partial<RouteSchema>> = Context<T> & {
   log: Logger;
   db: typeof db;
   t: TFunction;

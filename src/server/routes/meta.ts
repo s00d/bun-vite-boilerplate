@@ -3,7 +3,7 @@ import { Elysia } from "elysia";
 import { healthController, infoController } from "@/server/controllers/meta";
 import { cors } from '@elysiajs/cors'
 
-export const metaRoutes = new Elysia({ prefix: "/meta" })
+export const metaRoutes = new Elysia({ prefix: "/meta", tags: ["meta"] })
   .get("/health", healthController)
   .get("/info", infoController)
   .use(cors({

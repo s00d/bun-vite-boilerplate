@@ -4,6 +4,7 @@ import { createPinia } from "pinia";
 import { createApp as createBaseApp, createSSRApp } from "vue";
 import App from "./App.vue";
 import { createRouter } from "./router";
+import './main.css'
 
 export function createApp() {
   const app = import.meta.env.SSR ? createSSRApp(App) : createBaseApp(App);
