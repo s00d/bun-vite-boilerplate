@@ -588,7 +588,7 @@ This template supports static pre-rendering (SSG) for selected routes.
    ```
 
    This will:
-- Build the project using `vite.config.prod.ts`
+- Build the project using `vite.config.ts`
 - Render all configured routes to HTML
 - Save files to `dist/static`
 
