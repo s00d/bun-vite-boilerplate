@@ -9,5 +9,5 @@ export async function initDb() {
   const sqlite = new Database(process.env.DB_FILE_NAME ?? "data/mydb.sqlite");
   db = drizzle(sqlite, { schema });
   console.log("📦 Database initialized");
-  return db
+  return db;
 }

@@ -23,9 +23,7 @@ import { useRoute, useRouter } from "vue-router";
 import { computed } from "vue";
 
 const { locale, fallbackLocale, availableLocales } = useI18n();
-const defaultLocale = Array.isArray(fallbackLocale.value)
-  ? fallbackLocale.value[0]
-  : fallbackLocale.value ?? "en";
+const defaultLocale = Array.isArray(fallbackLocale.value) ? fallbackLocale.value[0] : (fallbackLocale.value ?? "en");
 
 const route = useRoute();
 const router = useRouter();
@@ -45,10 +43,7 @@ function onChange(event: Event) {
     restPath = segments.slice(1);
   }
 
-  const newPath =
-    newLocale === defaultLocale
-      ? `/${restPath.join("/")}`
-      : `/${newLocale}/${restPath.join("/")}`;
+  const newPath = newLocale === defaultLocale ? `/${restPath.join("/")}` : `/${newLocale}/${restPath.join("/")}`;
 
   router.push(newPath || "/");
 }

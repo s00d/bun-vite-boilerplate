@@ -1,9 +1,4 @@
-import {
-  createRouter as _createRouter,
-  createMemoryHistory,
-  createWebHistory,
-  type RouteRecordRaw
-} from "vue-router";
+import { createRouter as _createRouter, createMemoryHistory, createWebHistory, type RouteRecordRaw } from "vue-router";
 
 import AboutPage from "./pages/AboutPage.vue";
 import ChatPage from "./pages/ChatPage.vue";

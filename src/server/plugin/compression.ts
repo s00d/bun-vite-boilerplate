@@ -1,25 +1,51 @@
 // src/server/plugin/compression.ts
 import { Elysia } from "elysia";
+import { brotliCompressSync, gzipSync, deflateSync } from "node:zlib";
 
 export function compression() {
-  return new Elysia({ name: 'compressResponses' })
+  return new Elysia({ name: "compressResponses" })
     .mapResponse(({ request, response, set }) => {
-      const isJson = typeof response === 'object';
-      const compressionRequested = request.headers.get('Accept-Encoding')?.includes('gzip');
+      const isJson = typeof response === "object";
+      const acceptEncoding = request.headers.get("Accept-Encoding") ?? "";
+      const text = isJson ? JSON.stringify(response) : (response?.toString() ?? "");
 
-      const text = isJson ? JSON.stringify(response) : (response?.toString() ?? '');
-
-      if (!compressionRequested || text.length < 2048) {
+      if (text.length < 2048) {
         return response as Response;
       }
 
-      set.headers['Content-Encoding'] = 'gzip';
+      let encoding: "br" | "gzip" | "deflate" | null = null;
 
-      return new Response(Bun.gzipSync(new TextEncoder().encode(text)), {
+      if (acceptEncoding.includes("br")) {
+        encoding = "br";
+      } else if (acceptEncoding.includes("gzip")) {
+        encoding = "gzip";
+      } else if (acceptEncoding.includes("deflate")) {
+        encoding = "deflate";
+      }
+
+      if (!encoding) {
+        return response as Response;
+      }
+
+      set.headers["Content-Encoding"] = encoding;
+
+      const encoded = (() => {
+        const encodedText = Buffer.from(text, "utf-8");
+        switch (encoding) {
+          case "br":
+            return brotliCompressSync(encodedText);
+          case "gzip":
+            return gzipSync(encodedText);
+          case "deflate":
+            return deflateSync(encodedText);
+        }
+      })();
+
+      return new Response(encoded, {
         headers: {
-          'Content-Type': `${isJson ? 'application/json' : 'text/plain'}; charset=utf-8`,
+          "Content-Type": `${isJson ? "application/json" : "text/plain"}; charset=utf-8`,
         },
       });
     })
-    .as('plugin');
+    .as("plugin");
 }

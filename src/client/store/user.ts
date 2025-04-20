@@ -4,6 +4,7 @@ import { getEnv } from "@/shared/env";
 import { defineStore } from "pinia";
 
 interface UserInfo {
+  id: number;
   email: string;
   apiKey: string;
 }

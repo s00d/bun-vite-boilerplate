@@ -16,19 +16,18 @@ export type AppContext<T extends Partial<RouteSchema> = Partial<RouteSchema>> = 
 export const i18nRoutes = new Elysia({ prefix: "/api/i18n", tags: ["i18n"] }).get(
   "/",
   async ({
-           i18n,
-           log,
-           query,
-         }: AppContext<{
+    i18n,
+    log,
+    query,
+  }: AppContext<{
     query: { locale?: string; namespace?: string };
   }>) => {
     const locale = query.locale ?? i18n.language ?? i18n.options.fallbackLng?.toString() ?? "en";
-    const namespace = query.namespace ?? (Array.isArray(i18n.options.ns) ? i18n.options.ns[0] : i18n.options.ns ?? "translation");
+    const namespace =
+      query.namespace ?? (Array.isArray(i18n.options.ns) ? i18n.options.ns[0] : (i18n.options.ns ?? "translation"));
 
     const supportedLngsRaw = i18n.options.supportedLngs;
-    const supportedLngs = Array.isArray(supportedLngsRaw)
-      ? supportedLngsRaw.filter((lng) => lng !== "cimode")
-      : [];
+    const supportedLngs = Array.isArray(supportedLngsRaw) ? supportedLngsRaw.filter((lng) => lng !== "cimode") : [];
 
     const namespacesRaw = i18n.options.ns;
     const namespaces = Array.isArray(namespacesRaw) ? namespacesRaw : [namespacesRaw ?? "translation"];
@@ -83,5 +82,5 @@ export const i18nRoutes = new Elysia({ prefix: "/api/i18n", tags: ["i18n"] }).ge
       locale: t.Optional(t.String()),
       namespace: t.Optional(t.String()),
     }),
-  }
+  },
 );

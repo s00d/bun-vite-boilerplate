@@ -1,6 +1,6 @@
 // src/server/routes/protected.ts
 import { Elysia } from "elysia";
-import { profileController } from "@/server/controllers/auth";
+import { profileController, flashController } from "@/server/controllers/auth";
 import { authorize } from "@/server/middleware/auth";
 
 export const protectedRoutes = new Elysia({ prefix: "/api", tags: ["protected"] })
@@ -9,4 +9,5 @@ export const protectedRoutes = new Elysia({ prefix: "/api", tags: ["protected"] 
     if (!user) throw new Response("Unauthorized", { status: 401 });
     return { user };
   })
-  .get("/profile", profileController);
+  .get("/profile", profileController)
+  .post("/flash/:userId", flashController);

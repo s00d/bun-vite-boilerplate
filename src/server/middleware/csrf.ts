@@ -1,6 +1,6 @@
 // src/server/middleware/csrf.ts
 import { randomUUIDv7 } from "bun";
-import {SECURITY_CONFIG} from "../../../config/security.config";
+import { SECURITY_CONFIG } from "../../../config/security.config";
 
 export function generateCsrfToken(): string {
   return randomUUIDv7();
@@ -15,7 +15,7 @@ export function getCsrfTokenFromCookie(cookie: string | null): string | null {
 export function validateCsrf(request: Request): boolean {
   const cookie = request.headers.get("cookie");
   const csrfCookie = getCsrfTokenFromCookie(cookie);
-  console.log(1111, csrfCookie)
+  console.log(1111, csrfCookie);
   const csrfHeader = request.headers.get(SECURITY_CONFIG.csrfHeaderName);
   if (!csrfCookie || !csrfHeader) return false;
   return csrfCookie === csrfHeader;

@@ -3,7 +3,7 @@ import type { Config } from "tailwindcss";
 
 const config = {
   content: ["./src/**/*.{vue,ts,js}"],
-  darkMode: 'class',
+  darkMode: "class",
   theme: {
     extend: {
       colors: {

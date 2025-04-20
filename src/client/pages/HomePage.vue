@@ -2,6 +2,28 @@
   <div class="p-6 space-y-6 bg-surface text-foreground rounded shadow-md max-w-2xl mx-auto">
     <LocaleSwitcher class="mb-4" />
 
+    <!-- Send Flash Button (for demo) -->
+    <div class="fixed bottom-4 left-4 z-50 flex gap-2 items-center bg-background px-4 py-2 rounded shadow">
+      <div
+        v-if="flash"
+        class="bottom-4 right-4 bg-primary text-gray-800 px-4 py-2 rounded shadow z-50"
+      >
+        {{ flash }}
+      </div>
+
+      <input
+        v-model="message"
+        class="border border-border px-3 py-1 rounded bg-input text-foreground"
+        placeholder="Type message"
+      />
+      <button
+        @click="sendFlash"
+        class="btn btn-solid px-4 py-1"
+      >
+        Send Flash
+      </button>
+    </div>
+
     <h1 class="text-2xl font-bold">{{ t("home.title") }}</h1>
     <p class="text-muted">{{ t("home.welcome") }}</p>
 
@@ -47,6 +69,7 @@ import { useRouter } from "vue-router";
 import { useUserStore } from "../store/user";
 import { useI18n } from "vue-i18n";
 import LocaleSwitcher from "@/client/components/LocaleSwitcher.vue";
+import { useFlashMessages } from "@/client/composables/useFlashMessages";
 
 useHead({
   title: "Home Page - My App",
@@ -57,6 +80,19 @@ const count = ref(0);
 const store = useUserStore();
 const isLoggedIn = computed(() => store.isLoggedIn);
 const router = useRouter();
+const { flash } = useFlashMessages();
+const message = ref("Hello to myself!");
+
+async function sendFlash() {
+  if (!store.user) return;
+  try {
+    await api.post(`/api/flash/${store.user.id}`, {
+      message: message.value,
+    });
+  } catch (e) {
+    console.error("Flash send failed", e);
+  }
+}
 
 async function logout() {
   try {

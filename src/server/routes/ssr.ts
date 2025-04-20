@@ -33,7 +33,7 @@ ssr.get("*", async ({ request, set }) => {
 
   // 🔁 DEV: proxy all to Vite
   if (process.env.NODE_ENV !== "production") {
-    const vite_port = Number.parseInt(process.env.VITE_PORT || '6996', 10);
+    const vite_port = Number.parseInt(process.env.VITE_PORT || "6996", 10);
     const viteUrl = `http://localhost:${vite_port}${pathname}${url.search}`;
     console.log(`[proxy → vite] ${viteUrl}`);
 
@@ -42,6 +42,12 @@ ssr.get("*", async ({ request, set }) => {
       headers: request.headers,
       body: ["GET", "HEAD"].includes(request.method) ? undefined : request.body,
     });
+
+    set.headers["Surrogate-Control"] = "no-store";
+    set.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, proxy-revalidate";
+    // Deprecated though https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Pragma
+    set.headers.Pragma = "no-cache";
+    set.headers.Expires = "0";
 
     return new Response(proxyRes.body, {
       status: proxyRes.status,
@@ -62,7 +68,7 @@ ssr.get("*", async ({ request, set }) => {
   if (isStaticFile(pathname)) {
     const filePath = join(CLIENT_DIR, pathname);
 
-    console.log(111, CLIENT_DIR, filePath)
+    console.log(111, CLIENT_DIR, filePath);
     const file = Bun.file(filePath);
     if (await file.exists()) {
       fileCache.set(pathname, file);

@@ -1,17 +1,9 @@
-<!-- src/client/App.vue -->
+<script setup lang="ts">
+
+</script>
+
 <template>
   <Suspense>
     <router-view />
   </Suspense>
 </template>
-
-<script setup lang="ts">
-// глобальные импорты или provide/inject если нужно
-</script>
-
-<style lang="scss">
-body {
-  margin: 0;
-  font-family: system-ui, sans-serif;
-}
-</style>

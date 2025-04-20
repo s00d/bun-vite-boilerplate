@@ -9,7 +9,7 @@ import {
   getLocaleFromPath,
   getNamespaceFromPath,
   loadLocaleNamespace,
-  setI18nLanguage
+  setI18nLanguage,
 } from "./plugins/i18n";
 
 export function renderPreloadLinks(modules: Set<string>, manifest: Record<string, string[]>) {

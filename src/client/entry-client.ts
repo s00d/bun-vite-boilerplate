@@ -6,7 +6,7 @@ import {
   getLocaleFromPath,
   getNamespaceFromPath,
   loadLocaleNamespace,
-  setI18nLanguage
+  setI18nLanguage,
 } from "./plugins/i18n";
 
 const { app, router, pinia } = createApp();

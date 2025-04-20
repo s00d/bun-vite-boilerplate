@@ -1,4 +1,3 @@
-
 export const I18N_CONFIG = {
   /**
    * Absolute path to the directory with translation files (e.g. lang/en/common.json)

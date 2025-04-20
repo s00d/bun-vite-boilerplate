@@ -1,7 +1,7 @@
 // src/client/plugins/i18n.ts
 import { createI18n, type I18n } from "vue-i18n";
 import { nextTick } from "vue";
-import {I18N_CONFIG} from "../../../config/i18n.config";
+import { I18N_CONFIG } from "../../../config/i18n.config";
 import { api } from "@/shared/axios";
 
 export function setupI18n(locale: string): I18n<any, any, any, any, false> {
@@ -10,7 +10,7 @@ export function setupI18n(locale: string): I18n<any, any, any, any, false> {
     globalInjection: true,
     locale,
     fallbackLocale: "en",
-    messages: {}
+    messages: {},
   });
 }
 
@@ -38,11 +38,7 @@ export function getNamespaceFromPath(path: string): string {
   return /^[a-z]{2}$/.test(segments[0]) ? segments.slice(1).join("/") || "home" : segments.join("/") || "home";
 }
 
-export async function loadLocaleNamespace(
-  i18n: I18n<any, any, any, any, false>,
-  locale: string,
-  namespace: string
-) {
+export async function loadLocaleNamespace(i18n: I18n<any, any, any, any, false>, locale: string, namespace: string) {
   const key = `${locale}:${namespace}`;
 
   try {

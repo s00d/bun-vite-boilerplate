@@ -3,7 +3,7 @@ import { and, eq, gt } from "drizzle-orm";
 import { db } from "../db/init";
 import { sessions } from "../models/session";
 import { type User, users } from "../models/user";
-import {SECURITY_CONFIG} from "../../../config/security.config";
+import { SECURITY_CONFIG } from "../../../config/security.config";
 
 export async function authorize(request: Request): Promise<{ user: User | null }> {
   return getUserFromHeaders({
