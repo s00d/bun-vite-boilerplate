@@ -35,7 +35,10 @@ export type AppContext = ElysiaContext & {
 };
 
 export function healthController({ t }: AppContext) {
-  return { status: "ok", message: t("meta:health") };
+  return {
+    status: "ok",
+    message: t("meta:health")
+  };
 }
 
 export function infoController({ t, geo }: AppContext) {

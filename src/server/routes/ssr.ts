@@ -66,7 +66,6 @@ ssr.get("*", async ({ request, set }) => {
   if (isStaticFile(pathname)) {
     const filePath = join(CLIENT_DIR, pathname);
 
-    console.log(111, CLIENT_DIR, filePath);
     const file = Bun.file(filePath);
     if (await file.exists()) {
       fileCache.set(pathname, file);

@@ -59,12 +59,12 @@ try {
   if (!idDev) app.use(compression());
   if (!idDev) app.use(etag());
 
-  if (!idDev)
-    app.use(
-      rateLimit({
-        max: 100,
-      }),
-    );
+  // if (!idDev)
+  //   app.use(
+  //     rateLimit({
+  //       max: 100,
+  //     }),
+  //   );
   // app.use(geoIP) // required geo id db in data/GeoLite2-Country.mmdb
   app.use(i18nRoutes);
   app.use(guestRoutes);

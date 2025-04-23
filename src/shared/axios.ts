@@ -37,7 +37,6 @@ if (isServer) {
   api.interceptors.request.use((config) => {
     if (["post", "put", "patch", "delete"].includes(config.method || "")) {
       const csrf = getCookie(SECURITY_CONFIG.csrfCookieName);
-      console.log(111, csrf);
       if (csrf) config.headers[SECURITY_CONFIG.csrfHeaderName] = csrf;
     }
     return config;

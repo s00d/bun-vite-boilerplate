@@ -19,7 +19,7 @@ type SessionStorageType = "memory" | "redis" | "db";
 export class SessionStore {
   private readonly storage: SessionStorageType;
   private readonly memory: LRUCache<string, SessionData>;
-  private readonly redis: Redis;
+  private readonly redis: Redis | null = null;
   private readonly ttl: number;
 
   constructor(storage: SessionStorageType = "db") {
@@ -34,14 +34,16 @@ export class SessionStore {
       ttl: this.ttl,
     });
 
-    this.redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
+    if (this.storage === "redis") {
+      this.redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379");
+    }
   }
 
   async get(sessionId: string): Promise<SessionData | null> {
     const now = new Date();
 
     if (this.storage === "redis") {
-      const json = await this.redis.get(`session:${sessionId}`);
+      const json = await this.redis?.get(`session:${sessionId}`);
       if (!json) return null;
 
       const data = JSON.parse(json) as Omit<SessionData, "createdAt" | "expiresAt"> & {
@@ -51,7 +53,7 @@ export class SessionStore {
 
       const expiresAt = new Date(data.expiresAt);
       if (expiresAt <= now) {
-        await this.redis.del(`session:${sessionId}`);
+        await this.redis?.del(`session:${sessionId}`);
         return null;
       }
 
@@ -88,7 +90,7 @@ export class SessionStore {
     if (this.storage === "memory") {
       this.memory.set(session.id, session);
     } else if (this.storage === "redis") {
-      await this.redis.setex(
+      await this.redis?.setex(
         `session:${session.id}`,
         this.ttl / 1000,
         JSON.stringify({
@@ -109,7 +111,7 @@ export class SessionStore {
         break;
 
       case "redis":
-        await this.redis.del(`session:${sessionId}`);
+        await this.redis?.del(`session:${sessionId}`);
         break;
 
       case "db":

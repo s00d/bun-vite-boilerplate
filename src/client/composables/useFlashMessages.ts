@@ -16,7 +16,6 @@ export function useFlashMessages() {
         const data = JSON.parse(event.data);
         if (data.type === "flash") {
           flash.value = data.message;
-          console.log(111, flash.value);
           setTimeout(() => {
             flash.value = null;
           }, 5000);

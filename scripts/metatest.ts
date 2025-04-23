@@ -5,7 +5,7 @@ const baseUrl = `http://${process.env.HOST}:${process.env.PORT}`;
 
 const instance = autocannon(
   {
-    url: `${baseUrl}/meta/info`,
+    url: `${baseUrl}/meta/health`,
     method: "GET",
     headers: {
       Accept: "text/html",
