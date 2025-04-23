@@ -1,6 +1,8 @@
 import { Elysia, t } from "elysia";
-import { getUserFromHeaders } from "@/server/middleware/auth";
+import { SessionStore } from "@/server/services/session-store";
 import { SECURITY_CONFIG } from "../../../config/security.config";
+
+const sessionStore = new SessionStore(process.env.SESSION_STORAGE as any);
 
 export const wsRoutes = new Elysia()
   .derive(async ({ headers }) => {
@@ -12,10 +14,13 @@ export const wsRoutes = new Elysia()
     let userId: number | null = null;
 
     if (sessionId) {
-      const { user } = await getUserFromHeaders({ cookie: cookieHeader });
-      if (user) {
-        email = user.email;
-        userId = user.id;
+      const session = await sessionStore.get(sessionId);
+      if (session?.userId != null) {
+        const user = await sessionStore.getUser(session.userId);
+        if (user) {
+          email = user.email;
+          userId = user.id;
+        }
       }
     }
 
@@ -25,6 +30,7 @@ export const wsRoutes = new Elysia()
       lastPong: Date.now(),
     } as const;
   })
+
   .ws("/ws", {
     ping: (message) => message,
     pong: (message) => message,
@@ -47,6 +53,7 @@ export const wsRoutes = new Elysia()
       console.log("❌ WS disconnected:", ws.data.email);
     },
   })
+
   .ws("/ws/flash", {
     open(ws) {
       const id = ws.data.userId ?? ws.data.email;
@@ -55,7 +62,7 @@ export const wsRoutes = new Elysia()
       ws.subscribe("flash:all");
     },
     message(ws) {
-      // flash-сокет только для приёма, ничего не делает на входящие сообщения
+      // read-only socket
     },
     close(ws) {
       const id = ws.data.userId ?? ws.data.email;

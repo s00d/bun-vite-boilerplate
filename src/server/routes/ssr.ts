@@ -1,7 +1,5 @@
 import { Elysia } from "elysia";
-import { resolve, join } from "node:path";
-import { generateCsrfToken } from "@/server/middleware/csrf";
-import { SECURITY_CONFIG } from "../../../config/security.config";
+import { join } from "node:path";
 
 const STATIC_DIR = join(process.cwd(), "./dist/static");
 const CLIENT_DIR = join(process.cwd(), "./dist/client");
@@ -85,7 +83,6 @@ ssr.get("*", async ({ request, set }) => {
   if (await staticHtml.exists()) {
     fileCache.set(pathname, staticHtml);
     set.headers["Content-Type"] = "text/html";
-    set.headers["Set-Cookie"] = `${SECURITY_CONFIG.csrfCookieName}=${generateCsrfToken()}; Path=/; SameSite=Strict`;
     return staticHtml;
   }
 
@@ -103,7 +100,6 @@ ssr.get("*", async ({ request, set }) => {
         .replace("<!--ssr-env-->", `<script>window.__env = ${JSON.stringify(env)}</script>`);
 
       set.headers["Content-Type"] = "text/html";
-      set.headers["Set-Cookie"] = `${SECURITY_CONFIG.csrfCookieName}=${generateCsrfToken()}; Path=/; SameSite=Strict`;
 
       return fullHtml;
     } catch (err) {

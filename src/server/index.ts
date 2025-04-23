@@ -21,6 +21,7 @@ import { wsRoutes } from "./routes/ws";
 import { ssr } from "./routes/ssr";
 import { i18nRoutes } from "@/server/routes/i18n";
 import { initDb } from "@/server/db/init";
+import {sessionPlugin} from "@/server/plugin/session";
 
 const idDev = process.env.NODE_ENV !== "production";
 
@@ -42,6 +43,7 @@ try {
   app.use(cookie());
   app.use(html());
   app.use(serverTiming());
+  app.use(sessionPlugin());
 
   app.use(
     swagger({

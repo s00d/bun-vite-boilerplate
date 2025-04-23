@@ -1,9 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { generateCsrfToken } from "@/server/middleware/csrf";
 import { staticRoutes } from "../config/ssg.config";
 import manifest from "../dist/server/.vite/ssr-manifest.json" assert { type: "json" };
-import { SECURITY_CONFIG } from "../config/security.config";
 // @ts-expect-error no types from Vite SSR build
 import { render } from "../dist/server/entry-server.js";
 
@@ -45,11 +43,7 @@ async function generate() {
   console.log("🔄 Bun server ready. Starting static generation...");
 
   for (const route of staticRoutes) {
-    const headers = new Headers({
-      cookie: `${SECURITY_CONFIG.csrfHeaderName}=${generateCsrfToken()}`,
-    });
-
-    const { html, state, preloadLinks, env, headTags } = await render(route, headers, manifest);
+    const { html, state, preloadLinks, env, headTags } = await render(route, [], manifest);
 
     const pageHtml = template
       .replace("<!--preload-links-->", preloadLinks)

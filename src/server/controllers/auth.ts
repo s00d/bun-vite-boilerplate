@@ -1,29 +1,48 @@
-import { validateCsrf } from "@/server/middleware/csrf";
 import { db } from "@/server/db/init";
 import { sessions } from "@/server/models/session";
 import { users, type User } from "@/server/models/user";
 import { eq } from "drizzle-orm";
 import { randomUUIDv7 } from "bun";
 import bcrypt from "bcryptjs";
-import type { Context, RouteSchema } from "elysia";
 import type { Logger } from "@bogeychan/elysia-logger/types";
 import type { TFunction } from "i18next";
 import { SECURITY_CONFIG } from "../../../config/security.config";
+import type {SessionData, SessionStore} from "@/server/services/session-store";
+import type { Context as ElysiaContext } from "elysia";
+import type {Server} from "elysia/universal";
+import type {Cookie, ElysiaCookie} from "elysia/cookies";
+import type {StatusMap} from "elysia/utils";
+import type {HTTPHeaders} from "elysia/types";
 
 export interface AuthBody {
   email: string;
   password: string;
 }
 
-export type AppContext<T extends Partial<RouteSchema> = Partial<RouteSchema>> = Context<T> & {
+
+export type AppContext = ElysiaContext & {
   user: User;
   log: Logger;
   db: typeof db;
   t: TFunction;
+  session: SessionData;
+  sessionStore: SessionStore;
+  cookie: Record<string, Cookie<string | undefined>>;
+  sessionId: string;
+  csrfToken: string | null;
+  validateCsrf: () => boolean;
+  getCsrfToken: () => string;
+  server: Server | null;
+  set: {
+    status?: number | keyof StatusMap;
+    headers: HTTPHeaders;
+    redirect?: string;
+    cookie?: Record<string, ElysiaCookie>;
+  };
 };
 
-export async function registerController({ body, request, set, log, t }: AppContext<{ body: AuthBody }>) {
-  if (!validateCsrf(request)) {
+export async function registerController({ body, set, log, t, validateCsrf }: AppContext & { body: AuthBody }) {
+  if (!validateCsrf()) {
     log.warn("Registration failed: invalid CSRF token");
     set.status = 403;
     return { error: t("auth:invalid_csrf") };
@@ -69,50 +88,74 @@ export async function registerController({ body, request, set, log, t }: AppCont
   return { message: t("auth:registered"), userId: user.id };
 }
 
-export async function loginController({ body, request, set, log, t }: AppContext<{ body: AuthBody }>) {
-  if (!validateCsrf(request)) {
-    log.warn("Login failed: invalid CSRF token");
-    set.status = 403;
-    return { error: t("auth:invalid_csrf") };
+export async function loginController(ctx: AppContext & { body: AuthBody }) {
+  if (!ctx.validateCsrf()) {
+    ctx.log.warn("Login failed: invalid CSRF token");
+    ctx.set.status = 403;
+    return { error: ctx.t("auth:invalid_csrf") };
   }
 
-  const { email, password } = body;
-  log.info({ email }, "Attempting login");
+  const { email, password } = ctx.body;
+  ctx.log.info({ email }, "Attempting login");
 
   const user = db.select().from(users).where(eq(users.email, email)).get();
   if (!user) {
-    log.warn({ email }, "Login failed: user not found");
-    set.status = 401;
-    return { error: t("auth:invalid_credentials") };
+    ctx.log.warn({ email }, "Login failed: user not found");
+    ctx.set.status = 401;
+    return { error: ctx.t("auth:invalid_credentials") };
   }
 
   if (!bcrypt.compareSync(password, user.passwordHash)) {
-    log.warn({ email }, "Login failed: invalid password");
-    set.status = 401;
-    return { error: t("auth:invalid_credentials") };
+    ctx.log.warn({ email }, "Login failed: invalid password");
+    ctx.set.status = 401;
+    return { error: ctx.t("auth:invalid_credentials") };
   }
 
+  // ❌ удалить текущую (гостевую) сессию, если нужно
+  await ctx.sessionStore?.delete?.(ctx.sessionId); // только если у тебя есть метод удаления
+
+  // ✅ создать новую авторизованную сессию
   const sessionId = randomUUIDv7();
   const now = Date.now();
-  const expiresAt = now + 1000 * 60 * 60 * 24;
+  const expiresAt = new Date(now + SECURITY_CONFIG.sessionMaxAge * 1000);
+  const csrfToken = randomUUIDv7();
 
-  await db.insert(sessions).values({
+  await ctx.sessionStore.set({
     id: sessionId,
     userId: user.id,
+    csrfToken,
     createdAt: new Date(now),
-    expiresAt: new Date(expiresAt),
+    expiresAt,
   });
 
-  log.info({ email, userId: user.id }, "User logged in successfully");
+  // ✅ обновить реактивные куки
+  ctx.cookie[SECURITY_CONFIG.sessionCookieName].set({
+    value: sessionId,
+    path: "/",
+    httpOnly: true,
+    maxAge: SECURITY_CONFIG.sessionMaxAge,
+  });
 
-  set.headers["Set-Cookie"] =
-    `${SECURITY_CONFIG.sessionCookieName}=${sessionId}; Path=/; HttpOnly; Max-Age=${SECURITY_CONFIG.sessionMaxAge}`;
-  return { message: t("auth:login_success") };
+  ctx.cookie[SECURITY_CONFIG.csrfCookieName].set({
+    value: csrfToken,
+    path: "/",
+    sameSite: "strict",
+  });
+
+  ctx.log.info({ email, userId: user.id }, "User logged in successfully");
+
+  return { message: ctx.t("auth:login_success") };
 }
 
-export async function logoutController({ set, log, t }: AppContext) {
+export async function logoutController({ cookie, log, t, sessionId, sessionStore }: AppContext) {
   log.info("User logged out");
-  set.headers["Set-Cookie"] = `${SECURITY_CONFIG.sessionCookieName}=; Path=/; HttpOnly; Max-Age=0`;
+
+  await sessionStore?.delete?.(sessionId); // только если у тебя есть метод удаления
+
+  // Удаляем куки реактивно
+  cookie[SECURITY_CONFIG.sessionCookieName].remove();
+  cookie[SECURITY_CONFIG.csrfCookieName]?.remove(); // опционально, если есть
+
   return { message: t("auth:logout_success") };
 }
 
@@ -127,7 +170,7 @@ export async function profileController({ user, log, t }: { user: User; log: Log
 }
 
 export async function flashController(
-  ctx: AppContext<{ body: { message: string | unknown }; params: { userId: string } }>,
+  ctx: AppContext & { body: { message: string | unknown }; params: { userId: string } },
 ) {
   const targetUserId = Number(ctx.params.userId);
 
