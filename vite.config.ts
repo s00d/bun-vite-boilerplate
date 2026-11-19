@@ -17,7 +17,7 @@ export default defineConfig(({ command, mode }) => {
     plugins: [vue(), tailwindcss()],
     resolve: {
       alias: {
-        "@": resolve(__dirname, "src"),
+        "@": resolve(import.meta.dirname, "src"),
       },
     },
     define: {
@@ -31,20 +31,22 @@ export default defineConfig(({ command, mode }) => {
       hmr: true,
     },
     build: {
-      outDir: resolve(__dirname, isSSR ? "dist/server" : "dist/client"),
+      outDir: resolve(import.meta.dirname, isSSR ? "dist/server" : "dist/client"),
       emptyOutDir: !isSSR, // чтобы при сборке SSR не терлась client-сборка
       ssr: isSSR,
       manifest: !isSSR,
-      ssrManifest: isSSR,
+      ssrManifest: !isSSR, // module → chunks map comes from the client build
       rollupOptions: {
-        input: isSSR ? resolve(__dirname, "src/client/entry-server.ts") : resolve(__dirname, "index.html"),
-        output: {
-          entryFileNames: "[name].js",
-        },
+        input: isSSR
+          ? resolve(import.meta.dirname, "src/client/entry-server.ts")
+          : resolve(import.meta.dirname, "index.html"),
+        // Server entry must be dist/server/entry-server.js; client keeps hashed assets/*.js.
+        output: isSSR ? { entryFileNames: "[name].js" } : {},
       },
     },
     ssr: {
-      noExternal: ["vue", "@vue/server-renderer", "vue-router", "vue-i18n", "pinia"],
+      // Build only: in dev Vite's module runner can't eval CJS builds (vue), Bun imports them natively.
+      noExternal: isSSR ? ["vue", "@vue/server-renderer", "vue-router", "vue-i18n", "pinia"] : [],
     },
   };
 });

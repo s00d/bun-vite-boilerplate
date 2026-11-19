@@ -29,8 +29,8 @@ export function setI18nLanguage(i18n: I18n<any, any, any, any, false>, locale: s
 }
 
 export function getLocaleFromPath(path: string): string {
-  const segments = path.split("/").filter(Boolean);
-  return /^[a-z]{2}$/.test(segments[0]) ? segments[0] : "en";
+  const first = path.split("/").find(Boolean);
+  return first && /^[a-z]{2}$/.test(first) ? first : "en";
 }
 
 export function getNamespaceFromPath(path: string): string {
@@ -39,8 +39,6 @@ export function getNamespaceFromPath(path: string): string {
 }
 
 export async function loadLocaleNamespace(i18n: I18n<any, any, any, any, false>, locale: string, namespace: string) {
-  const key = `${locale}:${namespace}`;
-
   try {
     const res = await api.get("/api/i18n", {
       params: {

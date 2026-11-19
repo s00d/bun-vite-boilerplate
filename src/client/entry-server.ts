@@ -1,5 +1,6 @@
 // src/client/entry-server.ts
-import { setGlobalCookie } from "@/shared/globalCookieJar";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { setCookieReader } from "@/shared/globalCookieJar";
 import type { HeadTag } from "@unhead/schema";
 import { renderToString } from "@vue/server-renderer";
 import { createApp } from "./main";
@@ -22,9 +23,9 @@ export function renderPreloadLinks(modules: Set<string>, manifest: Record<string
         if (!seen.has(file)) {
           seen.add(file);
           if (file.endsWith(".js")) {
-            links += `<link rel="modulepreload" crossorigin href="/${file}">`;
+            links += `<link rel="modulepreload" crossorigin href="${file.startsWith("/") ? file : `/${file}`}">`;
           } else if (file.endsWith(".css")) {
-            links += `<link rel="stylesheet" href="/${file}">`;
+            links += `<link rel="stylesheet" href="${file.startsWith("/") ? file : `/${file}`}">`;
           }
         }
       }
@@ -37,7 +38,7 @@ function renderHeadTags(tags: HeadTag[]): string {
   return tags
     .map(({ tag, props, textContent }) => {
       const attrs = Object.entries(props || {})
-        .map(([key, value]) => `${key}="${String(value).replace(/"/g, "&quot;")}"`)
+        .map(([key, value]) => `${key}="${String(value).replaceAll('"', "&quot;")}"`)
         .join(" ");
       const openTag = `<${tag}${attrs ? ` ${attrs}` : ""}>`;
       const closeTag = tag === "meta" || tag === "link" ? "" : `</${tag}>`;
@@ -46,10 +47,16 @@ function renderHeadTags(tags: HeadTag[]): string {
     .join("\n");
 }
 
-export async function render(url: string, headers: Headers, manifest: Record<string, string[]>) {
-  const { app, router, pinia, head } = createApp();
+// Each render sees only its own request's cookie, also across awaits of concurrent renders.
+const requestCookie = new AsyncLocalStorage<string>();
+setCookieReader(() => requestCookie.getStore() ?? "");
 
-  setGlobalCookie(headers.get("cookie"));
+export function render(url: string, headers: Headers, manifest: Record<string, string[]>) {
+  return requestCookie.run(headers.get("cookie") ?? "", () => renderApp(url, manifest));
+}
+
+async function renderApp(url: string, manifest: Record<string, string[]>) {
+  const { app, router, pinia, head } = createApp();
 
   const locale = getLocaleFromPath(url);
   const namespace = getNamespaceFromPath(url);
@@ -73,12 +80,8 @@ export async function render(url: string, headers: Headers, manifest: Record<str
   const state = JSON.stringify(pinia.state.value);
   const preloadLinks = renderPreloadLinks(ctx.modules || new Set(), manifest);
 
-  const env: Record<string, string> = {};
-  for (const key in process.env) {
-    if (key.startsWith("PUBLIC_") && process.env[key] !== undefined) {
-      env[key] = process.env[key];
-    }
-  }
+  // The catch-all route is a real 404 for crawlers and caches, not a 200 page.
+  const status = router.currentRoute.value.name === "NotFound" ? 404 : 200;
 
-  return { html, state, preloadLinks, env, headTags, locale };
+  return { html, state, preloadLinks, headTags, locale, status };
 }

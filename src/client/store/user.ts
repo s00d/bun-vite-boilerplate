@@ -1,5 +1,4 @@
 import { api } from "@/shared/axios";
-import { getEnv } from "@/shared/env";
 // src/client/store/user.ts
 import { defineStore } from "pinia";
 

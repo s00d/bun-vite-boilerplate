@@ -1,54 +1,47 @@
-import { getEnv } from "@/shared/env";
 // src/client/composables/useWebSocket.ts
 import { onMounted, onUnmounted, ref } from "vue";
+import { getEnv } from "@/shared/env";
 
-const wsUrl = getEnv("PUBLIC_WS_URL");
 const RECONNECT_DELAY = 5000;
 
+/** Same-origin /ws unless PUBLIC_WS_URL says otherwise. */
+function wsUrl(): string {
+  return getEnv("PUBLIC_WS_URL") || `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws`;
+}
+
+/** Chat socket: reconnects until the component unmounts. */
 export function useWebSocket() {
   const messages = ref<string[]>([]);
+  const connected = ref(false);
   let socket: WebSocket | null = null;
-  let reconnectTimer: number | null = null;
+  let reconnectTimer: number | undefined;
+  let stopped = false;
 
   function connect() {
-    socket = new WebSocket(wsUrl);
-
+    socket = new WebSocket(wsUrl());
     socket.onopen = () => {
-      console.log("✅ WS connected");
+      connected.value = true;
     };
-
     socket.onmessage = (event) => {
-      if (event.data === "ping") {
-        socket?.send("pong");
-        return;
-      }
-
-      messages.value.push(event.data);
+      messages.value.push(String(event.data));
     };
-
     socket.onclose = () => {
-      console.warn("⚠️ WS disconnected. Reconnecting...");
-      reconnectTimer = window.setTimeout(connect, RECONNECT_DELAY);
+      connected.value = false;
+      if (!stopped) reconnectTimer = window.setTimeout(connect, RECONNECT_DELAY);
     };
-
-    socket.onerror = (err) => {
-      console.error("❌ WS error:", err);
-      socket?.close();
-    };
+    socket.onerror = () => socket?.close();
   }
 
   onMounted(connect);
-
   onUnmounted(() => {
-    if (reconnectTimer) clearTimeout(reconnectTimer);
+    stopped = true;
+    clearTimeout(reconnectTimer);
     socket?.close();
   });
 
-  function send(msg: string) {
-    if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({ message: msg }));
-    }
+  function send(message: string) {
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ message }));
   }
 
-  return { messages, send };
+  return { messages, connected, send };
 }

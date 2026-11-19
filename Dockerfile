@@ -1,35 +1,24 @@
-# Базовый образ
-FROM oven/bun:1.2.10 as base
+FROM oven/bun:1 AS build
 WORKDIR /app
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 COPY . .
+RUN bun run build && bun run generate
 
-# Установка всех зависимостей (включая dev)
-RUN bun install
-
-# Сборка проекта
-RUN bun run build
-RUN bun run generate
-
-# Production-слой
-FROM oven/bun:1.2.10 as prod
+FROM oven/bun:1 AS prod
 WORKDIR /app
-
-# Копируем только необходимые файлы
-COPY --from=base /app/package.json .
-COPY --from=base /app/bun.lock .
-COPY --from=base /app/tsconfig.json .
-COPY --from=base /app/twilight.config.ts .
-COPY --from=base /app/vite.config.ts .
-COPY --from=base /app/postcss.config.mjs .
-COPY --from=base /app/dist ./dist
-COPY --from=base /app/.env .
-COPY --from=base /app/.env.production .
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/src ./src
-
-# Установка только прод-зависимостей при необходимости
-# RUN bun install --production --frozen-lockfile
-
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile --production
+COPY --from=build /app/dist ./dist
+COPY tsconfig.json ./
+COPY src ./src
+COPY config ./config
+COPY lang ./lang
+COPY drizzle ./drizzle
+COPY public ./public
+RUN mkdir -p data && chown bun:bun data
+USER bun
 EXPOSE 3000
-
+VOLUME ["/app/data"]
 CMD ["bun", "run", "src/server/index.ts"]

@@ -1,78 +1,29 @@
 // src/server/routes/i18n.ts
-import { Elysia, t } from "elysia";
 import { resolve } from "node:path";
-import type { Context, RouteSchema } from "elysia";
-import type { Logger } from "@bogeychan/elysia-logger/types";
-import type { TFunction, i18n as I18NextInstance } from "i18next";
-import type { db } from "@/server/db/init";
+import { Elysia, t } from "elysia";
+import { I18N_CONFIG } from "../../../config/i18n.config";
 
-export type AppContext<T extends Partial<RouteSchema> = Partial<RouteSchema>> = Context<T> & {
-  log: Logger;
-  db: typeof db;
-  t: TFunction;
-  i18n: I18NextInstance;
-};
+const supportedLngs: readonly string[] = I18N_CONFIG.supportedLngs;
+const namespaces: readonly string[] = I18N_CONFIG.namespaces;
 
+/** Translations of one namespace, for the client's lazy loading. */
 export const i18nRoutes = new Elysia({ prefix: "/api/i18n", tags: ["i18n"] }).get(
   "/",
-  async ({
-    i18n,
-    log,
-    query,
-  }: AppContext<{
-    query: { locale?: string; namespace?: string };
-  }>) => {
-    const locale = query.locale ?? i18n.language ?? i18n.options.fallbackLng?.toString() ?? "en";
-    const namespace =
-      query.namespace ?? (Array.isArray(i18n.options.ns) ? i18n.options.ns[0] : (i18n.options.ns ?? "translation"));
+  async ({ query, status }) => {
+    const locale = query.locale ?? I18N_CONFIG.fallbackLng;
+    const namespace = query.namespace ?? I18N_CONFIG.defaultNS;
 
-    const supportedLngsRaw = i18n.options.supportedLngs;
-    const supportedLngs = Array.isArray(supportedLngsRaw) ? supportedLngsRaw.filter((lng) => lng !== "cimode") : [];
+    // Whitelisted, so both are safe to put into a path.
+    if (!supportedLngs.includes(locale)) return status(404, "Locale not supported");
+    if (!namespaces.includes(namespace)) return status(404, "Namespace not supported");
 
-    const namespacesRaw = i18n.options.ns;
-    const namespaces = Array.isArray(namespacesRaw) ? namespacesRaw : [namespacesRaw ?? "translation"];
-
-    if (!supportedLngs.includes(locale)) {
-      return new Response("Locale not supported", { status: 404 });
-    }
-
-    if (!namespaces.includes(namespace)) {
-      return new Response("Namespace not supported", { status: 404 });
-    }
-
-    const backend = i18n.options.backend as { [key: string]: unknown } | undefined;
-    const loadPath = backend?.loadPath;
-
-    let filePath: string | null = null;
-
-    if (typeof loadPath === "string") {
-      filePath = resolve(loadPath.replace("{{lng}}", locale).replace("{{ns}}", namespace));
-    } else if (typeof loadPath === "function") {
-      const resolved = loadPath([locale], [namespace]);
-      const path = Array.isArray(resolved) ? resolved[0] : resolved;
-      filePath = resolve(path);
-    } else {
-      log.warn("Invalid i18n backend loadPath");
-      return new Response("Translation backend misconfigured", { status: 500 });
-    }
-
-    const file = Bun.file(filePath);
-    if (!(await file.exists())) {
-      return new Response("Translation file not found", { status: 404 });
-    }
-
-    let translations: any = {};
-    try {
-      translations = await file.json();
-    } catch (e) {
-      log.warn({ locale, namespace, error: e }, "Translation file load error");
-      return new Response("Failed to parse translation file", { status: 500 });
-    }
+    const file = Bun.file(resolve(I18N_CONFIG.localesPath, locale, `${namespace}.json`));
+    if (!(await file.exists())) return status(404, "Translation file not found");
 
     return {
       locale,
       namespace,
-      translations,
+      translations: await file.json(),
       availableLocales: supportedLngs,
       availableNamespaces: namespaces,
     };

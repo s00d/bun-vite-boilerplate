@@ -1,4 +1,4 @@
-// Updated generator script to match Elysia-based structure and modern routing
+// Scaffolding: bun run scripts/gen.ts <controller|route|model|middleware> <Name> [guest|protected]
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -8,9 +8,9 @@ function ensureDir(path: string) {
 
 function genController(name: string) {
   const content = `// src/server/controllers/${name}.ts
-import type { Context } from 'elysia';
+import type { AppContext } from '@/server/context';
 
-export async function ${name}Controller({}: Context): Promise<any> {
+export function ${name}Controller({ t }: Pick<AppContext, 't'>) {
   return { message: "${name} controller works" };
 }`;
 
@@ -27,10 +27,13 @@ function genRoute(name: string, type: "guest" | "protected") {
   if (!existsSync(routePath)) {
     const content = `// src/server/routes/${type}.ts
 import { Elysia } from 'elysia';
+import type { AppContextPlugin } from '@/server/context';
 ${controllerImport}
 
-export const ${type}Routes = new Elysia({ prefix: '/api' })
-  .get('/${type}/${name.toLowerCase()}', ${controllerName});
+export const ${type}Routes = (context: AppContextPlugin) =>
+  new Elysia({ prefix: '/api' })
+    .use(context)
+    .get('/${type}/${name.toLowerCase()}', (ctx) => ${controllerName}(ctx));
 `;
     writeFileSync(routePath, content);
     console.log(`✔ Route file created: ${routePath}`);
@@ -43,8 +46,7 @@ export const ${type}Routes = new Elysia({ prefix: '/api' })
     file = controllerImport + "\n" + file;
   }
 
-  const insertIndex = file.lastIndexOf(".get(");
-  const routeCode = `\n  .get('/${type}/${name.toLowerCase()}', ${controllerName})`;
+  const routeCode = `\n    .get('/${type}/${name.toLowerCase()}', (ctx) => ${controllerName}(ctx))`;
   const insertAt = file.lastIndexOf(";");
   file = file.slice(0, insertAt) + routeCode + file.slice(insertAt);
   writeFileSync(routePath, file);
@@ -72,13 +74,14 @@ export type ${name}Type = typeof ${name}.$inferSelect;`;
 
 function genMiddleware(name: string) {
   const content = `// src/server/middleware/${name}.ts
-import type { Context } from 'elysia';
+import { Elysia } from 'elysia';
 
-export async function ${name}(ctx: Context): Promise<boolean> {
-  // Add your middleware logic here
-  return true;
-}`;
+/** Use in createApp (src/server/app.ts): app.use(${name}) */
+export const ${name} = new Elysia({ name: '${name}' }).onBeforeHandle({ as: 'global' }, () => {
+  // return a Response (or status(...)) to stop the request
+});`;
 
+  ensureDir(resolve("src/server/middleware"));
   const path = resolve(`src/server/middleware/${name}.ts`);
   writeFileSync(path, content);
   console.log(`✔ Middleware created: ${path}`);
@@ -86,10 +89,10 @@ export async function ${name}(ctx: Context): Promise<boolean> {
 
 function usage() {
   console.log("Usage:");
-  console.log("  bun run src/scripts/gen.ts controller <Name>");
-  console.log("  bun run src/scripts/gen.ts route <Name> <guest|protected>");
-  console.log("  bun run src/scripts/gen.ts model <Name>");
-  console.log("  bun run src/scripts/gen.ts middleware <Name>");
+  console.log("  bun run scripts/gen.ts controller <Name>");
+  console.log("  bun run scripts/gen.ts route <Name> <guest|protected>");
+  console.log("  bun run scripts/gen.ts model <Name>");
+  console.log("  bun run scripts/gen.ts middleware <Name>");
   process.exit(1);
 }
 

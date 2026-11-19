@@ -20,11 +20,11 @@ Ideal for building isomorphic applications with authentication, real-time featur
 - ✅ Unified configuration and composables
 - ✅ CSRF protection, CORS, CSP
 - ✅ **i18n with dynamic translation loading**
-    - 🌐 Auto-detect locale from route
-    - 📦 Load only necessary translation namespace per page
-    - 🧠 SSR/SSG compatible
-    - 🧩 Backend integration via `i18next-fs-backend` and Elysia route
-  
+  - 🌐 Auto-detect locale from route
+  - 📦 Load only necessary translation namespace per page
+  - 🧠 SSR/SSG compatible
+  - 🧩 Backend integration via `i18next-fs-backend` and Elysia route
+
 ---
 
 ## 📁 Project Structure
@@ -33,7 +33,7 @@ Ideal for building isomorphic applications with authentication, real-time featur
 data/                         # SQLite DB file (default: mydb.sqlite)
 dist/                         # Production build (client + server bundles)
 scripts/                      # Generation, build, and utility scripts
-tests/                        # Unit, integration, and load tests
+tests/                        # bun test: API, auth, WebSocket, SSR (server starts itself)
 public/                       # Static public assets (e.g., logo, icons)
 .env                          # Environment variable definitions
 index.html                    # HTML template for SSR rendering
@@ -41,8 +41,7 @@ vite.config.ts                # Vite build configuration
 
 config/                       # Configuration layer
 ├── ssg.config.ts             # Static routes for pre-rendering
-├── ws.config.ts              # WebSocket ping/pong settings
-└── security.config.ts        # CORS, CSP, cookie settings
+├── security.config.ts        # Cookie names, CSRF header, session lifetime
 └── i18n.config.ts            # i18n config
 
 src/
@@ -55,23 +54,24 @@ src/
 │   ├── router.ts             # Vue Router config
 │   ├── entry-client.ts       # Client SPA bootstrap
 │   ├── entry-server.ts       # SSR rendering entry
-│   ├── entry-static-client.ts# Static client hydration
 │   ├── env.d.ts              # Type declarations
 │   └── vite-env.d.ts         # Vite typings
 │
 ├── server/                   # Bun HTTP + WebSocket + Elysia
 │   ├── db/                   # Drizzle ORM DB init
 │   ├── models/               # Drizzle schemas
-│   ├── middleware/           # CSRF, auth, validation
+│   ├── plugin/               # session (cookies, CSRF, user), vite-ssr (pages)
+│   ├── services/             # SessionStore: the one owner of sessions (db/memory/redis)
 │   ├── controllers/          # Route handlers (business logic)
-│   ├── routes/               # API + SSR + WS routes
-│   ├── utils/                # preload, static walker
-│   └── index.ts              # Server entrypoint (Bun + Elysia)
+│   ├── routes/               # API + WS route modules (take the shared context)
+│   ├── context.ts            # log, t, session, user for every route
+│   ├── app.ts                # createApp(): the whole server, no listen (tests use it)
+│   └── index.ts              # Entrypoint: createApp().listen()
 │
 ├── shared/                   # Cross-layer utils
 │   ├── axios.ts              # Axios with SSR support
 │   ├── env.ts                # PUBLIC_ environment reader
-│   └── globalCookieJar.ts    # Server cookie holder
+│   └── globalCookieJar.ts    # Per-request cookie for SSR API calls
 ```
 
 Create `.env`:
@@ -102,25 +102,29 @@ bun run start
 ## ⚙️ How It Works
 
 ### SSR/SPA Hybrid
+
 - Server renders HTML via `entry-server.ts`
 - State is hydrated client-side using `window.__pinia`
 - Preload links injected into `<head>` for performance
 
 ### Authentication
+
 - Session: `Set-Cookie: sessionId`
 - Alternative: `Authorization: Bearer <apiKey>`
 - Example routes:
-    - `POST /api/guest/login`
-    - `POST /api/guest/register`
-    - `GET /api/profile`
-    - `POST /api/logout`
+  - `POST /api/guest/login`
+  - `POST /api/guest/register`
+  - `GET /api/profile`
+  - `POST /api/logout`
 
 ### Data Fetching
+
 - Via global axios client `@/shared/axios.ts`
 - SSR requests auto-include cookies from `globalCookieJar`
 - `baseURL` is `PUBLIC_API_URL`
 
 ### WebSocket
+
 - Connect via `ws://localhost:8888/ws`
 - Use `useWebSocket()` composable on the client
 - Broadcast server messages with `broadcast()`
@@ -130,19 +134,25 @@ bun run start
 ## ✍️ Adding...
 
 ### A Page
+
 Create a `.vue` file in `src/client/pages/` and register it in `router.ts`:
+
 ```ts
 { path: '/dashboard', component: () => import('./pages/Dashboard.vue') }
 ```
 
 ### A Model
+
 Add it to `src/server/models`, then export from `schema.ts`:
+
 ```ts
 export const posts = sqliteTable('posts', { ... });
 ```
 
 ### A Controller
+
 Create a handler in `controllers/`:
+
 ```ts
 export async function dashboardController({ body, request, set }: Context<{ body: PostBody }>) {
   return { ok: true };
@@ -150,16 +160,20 @@ export async function dashboardController({ body, request, set }: Context<{ body
 ```
 
 ### An API Route
+
 Add to `routes/guest.ts` or `routes/protected.ts`:
+
 ```ts
-routes['/api/dashboard'] = { GET: dashboardController };
+routes["/api/dashboard"] = { GET: dashboardController };
 export const protectedRoutes = new Elysia({ prefix: "/api" })
-//...
-.post("/api/dashboard", dashboardController)
+  //...
+  .post("/api/dashboard", dashboardController);
 ```
 
 ### A Generator Script
+
 Use CLI to scaffold code:
+
 ```bash
 bun run scripts/gen.ts controller MyController
 bun run scripts/gen.ts route MyRoute guest
@@ -171,16 +185,25 @@ bun run scripts/gen.ts middleware MyMiddleware
 ---
 
 ## 📦 Scripts
+
 ```bash
-bun run dev       # Dev mode with Vite
-bun run build     # Build frontend and SSR bundle
-bun run generate  # Generate frontend and bundle
+bun run dev       # One process: Elysia + Vite in-process, real SSR with HMR
+bun run build     # Build client and SSR bundles
+bun run generate  # Prerender config/ssg.config.ts routes into dist/static
 bun run start     # Start production server
+bun run test      # bun test: starts the server itself on a free port, in-memory DB
+bun run lint      # oxlint + oxlint-vue-rs (template rules)
+bun run format    # oxfmt
 ```
+
+SSR is one Elysia plugin, `src/server/plugin/vite-ssr.ts` (`viteSSR()`): in dev it runs Vite inside the
+Bun process and renders through `vite.ssrLoadModule`; in prod it serves `dist/client/assets`, prerendered
+`dist/static` pages and SSR from `dist/server`. `PUBLIC_*` env is injected when a page is served.
 
 ---
 
 ## 🧠 State Management
+
 - Pinia (`useUserStore`, etc.)
 - Auto-hydration in `entry-client.ts`
 - Server sets `window.__pinia` on render
@@ -188,17 +211,19 @@ bun run start     # Start production server
 ---
 
 ## 🩱 Database
+
 - Powered by Drizzle ORM
 - SQLite by default (`.env: DB_FILE_NAME`)
 - Tables:
-    - `users`: email, passwordHash, apiKey
-    - `sessions`: id, userId, expiresAt
+  - `users`: email, passwordHash, apiKey
+  - `sessions`: id, userId, expiresAt
 
 ---
 
 ## 🗼 Clean Architecture
+
 - `controllers/`: business logic
-- `middleware/`: validation/auth
+- `plugin/`: cross-cutting Elysia plugins (session, SSR)
 - `routes/`: route mapping
 - `models/`: Drizzle schema
 - `shared/`: universal utils (axios, env, cookies)
@@ -211,15 +236,14 @@ bun run start     # Start production server
 
 The template includes built-in CSRF protection:
 
-- A secure CSRF token is generated on each SSR HTML response and stored in a cookie.
-- The client automatically attaches the token via the `x-csrf-token` header on requests.
-- Server middleware validates the token by comparing it to the cookie.
-- Only affects `POST`, `PUT`, `PATCH`, and `DELETE` methods.
-- The logic is implemented in `src/server/middleware/csrf.ts` and used in the main router.
+- Every session has a CSRF token; it is sent in the `csrf` cookie (readable by the page) and rotated on login and register.
+- The client attaches it as the `x-csrf-token` header on `POST`, `PUT`, `PATCH` and `DELETE` (`src/shared/axios.ts`).
+- Handlers call `validateCsrf()` (from `src/server/plugin/session.ts`): register, login, logout and flash require it.
+- Session cookie: `HttpOnly`, `SameSite=Lax`, `Secure` in production. Login/register are rate-limited per IP (`AUTH_RATE_LIMIT`).
 
 This helps prevent cross-site request forgery attacks in authenticated requests.
 
---- 
+---
 
 ### 🗄️ Database Support
 
@@ -242,15 +266,17 @@ DB_URL=mysql://user:pass@host:port/dbname
 2. **Change the Drizzle adapter in `src/server/db/init.ts`:**
 
 Replace:
+
 ```ts
-import { drizzle } from 'drizzle-orm/bun-sqlite';
-import { Database } from 'bun:sqlite';
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { Database } from "bun:sqlite";
 ```
 
 With (example for MySQL):
+
 ```ts
-import { drizzle } from 'drizzle-orm/mysql2';
-import mysql from 'mysql2/promise';
+import { drizzle } from "drizzle-orm/mysql2";
+import mysql from "mysql2/promise";
 ```
 
 And update `initDb()`:
@@ -261,9 +287,11 @@ db = drizzle(connection, { schema });
 ```
 
 3. **Adapt models in `src/server/models/`** using the corresponding dialect’s schema utilities:
+
 - `drizzle-orm/sqlite-core` → `drizzle-orm/mysql-core` or `pg-core`
 
 4. **Install required dependencies**:
+
 ```bash
 bun add mysql2 drizzle-orm
 ```
@@ -320,9 +348,9 @@ Localization is powered by `vue-i18n`, integrated with **SSR + SPA** support and
 - Translations are organized by **locale** and **namespace**, e.g.  
   `lang/en/home.json`, `lang/ru/profile.json`
 - The namespace is automatically derived from the route:
-    - `/en/profile` → namespace: `profile`
-    - `/auth/login` → namespace: `auth`
-    - `/` → namespace: `home` (default)
+  - `/en/profile` → namespace: `profile`
+  - `/auth/login` → namespace: `auth`
+  - `/` → namespace: `home` (default)
 
 🔁 **On the client, translations are automatically loaded based on the current page name**. You don't need to manually specify a namespace — it's inferred from the URL.
 
@@ -408,7 +436,7 @@ export function healthController({ t }: { t: TFunction }) {
 
 > This will return a translated string from `lang/{locale}/meta.json` under the key `"health"`.
 
---- 
+---
 
 Let me know if you'd like to add an example of pluralization or interpolation too.
 
@@ -436,6 +464,7 @@ This document presents performance metrics and session analysis based on synthet
 ---
 
 ## 🔐 Login API (`/api/guest/login`)
+
 - **Connections:** 50
 - **Test Duration:** 10 seconds
 - **Total Requests:** 191
@@ -446,16 +475,18 @@ This document presents performance metrics and session analysis based on synthet
 - **Throughput:** 3.27 kB/s
 
 ### 📈 Latency Distribution
+
 | Percentile | Latency (ms) |
-|------------|--------------|
+| ---------- | ------------ |
 | 2.5%       | 291          |
 | 50%        | 3462         |
 | 97.5%      | 4179         |
 | 99%        | 4249         |
 
 ### 🕒 Session Length (ms)
+
 | Metric | Value  |
-|--------|--------|
+| ------ | ------ |
 | Min    | 96.7   |
 | Max    | 5487.8 |
 | Mean   | 2714.2 |
@@ -466,6 +497,7 @@ This document presents performance metrics and session analysis based on synthet
 ---
 
 ## 🏠 Homepage (`/`)
+
 - **Load Profile:** 50 → 500 RPS (ramp-up over 30 seconds)
 - **Test Duration:** 30 seconds
 - **Total Requests:** 8250
@@ -477,16 +509,18 @@ This document presents performance metrics and session analysis based on synthet
 - **Throughput:** ~7.5 MB in 30s
 
 ### 📈 Latency Distribution
+
 | Percentile | Latency (ms) |
-|------------|--------------|
+| ---------- | ------------ |
 | 2.5%       | 1            |
 | 50%        | 1            |
 | 97.5%      | 2            |
 | 99%        | 4            |
 
 ### 🕒 Session Length (ms)
+
 | Metric | Value |
-|--------|-------|
+| ------ | ----- |
 | Min    | 1.3   |
 | Max    | 219.1 |
 | Mean   | 5.7   |
@@ -494,10 +528,10 @@ This document presents performance metrics and session analysis based on synthet
 | p95    | 5.4   |
 | p99    | 127.8 |
 
-
 ---
 
 ## 🎯 RPC / Profile Load (CSRF → Login → Profile)
+
 - **Connections:** 50
 - **Total Requests:** 600
 - **2xx Responses:** 600
@@ -505,21 +539,22 @@ This document presents performance metrics and session analysis based on synthet
 - **p99 Latency:** 3605 ms
 
 ### 🕒 Session Length (ms)
-| Metric | Value |
-|--------|-------|
-| Min    | 96.7  |
-| Max    | 5487.8|
-| Mean   | 2714.2|
-| Median | 2780  |
-| p95    | 4770.6|
-| p99    | 5378.9|
+
+| Metric | Value  |
+| ------ | ------ |
+| Min    | 96.7   |
+| Max    | 5487.8 |
+| Mean   | 2714.2 |
+| Median | 2780   |
+| p95    | 4770.6 |
+| p99    | 5378.9 |
 
 ---
 
 ## 📦 Notes
+
 - All tests were performed on `http://localhost:8888`.
 - Bun server memory usage peaked at **327 MB**, with negligible CPU load.
-
 
 ---
 
@@ -527,13 +562,13 @@ This document presents performance metrics and session analysis based on synthet
 
 Extracted from `artillery` and custom loadtest logs:
 
-| Metric           | Value (seconds) |
-|------------------|-----------------|
-| Average          | 2714.2          |
-| Median           | 2780            |
-| 95th Percentile  | 4770.6          |
-| 99th Percentile  | 5378.9          |
-| Max              | 5487.8          |
+| Metric          | Value (seconds) |
+| --------------- | --------------- |
+| Average         | 2714.2          |
+| Median          | 2780            |
+| 95th Percentile | 4770.6          |
+| 99th Percentile | 5378.9          |
+| Max             | 5487.8          |
 
 > Most user sessions range between 2.5–5 minutes. A few sessions exceed 20 minutes, indicating background usage or idle tabs.
 
@@ -544,12 +579,14 @@ Extracted from `artillery` and custom loadtest logs:
 To isolate backend performance, we executed a high-load benchmark targeting the `/meta/info` endpoint without involving frontend rendering, WebSocket communication, or additional system load (e.g., SSR or SQLite queries).
 
 ### 📌 Test Configuration:
+
 - **Command:** `bun run scripts/metatest.ts`
 - **Connections:** 1000
 - **Duration:** 10 seconds
 - **Workers:** 1
 
 ### 📈 Results:
+
 - **Average Latency:** `72.28 ms`
 - **p99 Latency:** `142 ms`
 - **Max Latency:** `269 ms`
@@ -570,7 +607,6 @@ These results confirm that the backend powered by **Bun is highly capable under 
 
 ---
 
-
 ## 🏗️ Static Generation (SSG)
 
 This template supports static pre-rendering (SSG) for selected routes.
@@ -578,16 +614,19 @@ This template supports static pre-rendering (SSG) for selected routes.
 ### ⚙️ Setup
 
 1. **Define routes** to generate in `ssg.config.ts`:
+
    ```ts
    export const staticRoutes = ["/", "/about", "/auth/login"];
    ```
 
 2. **Run the generation** script:
+
    ```bash
    bun run generate
    ```
 
    This will:
+
 - Build the project using `vite.config.ts`
 - Render all configured routes to HTML
 - Save files to `dist/static`
@@ -602,8 +641,8 @@ This template supports static pre-rendering (SSG) for selected routes.
 ### 🚦 How it works
 
 - When a user requests a page:
-    - If a pre-rendered HTML file exists in `dist/static`, it is served instantly.
-    - Otherwise, the page is rendered via SSR on demand.
+  - If a pre-rendered HTML file exists in `dist/static`, it is served instantly.
+  - Otherwise, the page is rendered via SSR on demand.
 - This ensures fast load for common pages, while keeping SSR flexibility.
 
 ---
@@ -613,7 +652,6 @@ This template supports static pre-rendering (SSG) for selected routes.
 - You can mix SSG and SSR freely.
 - Useful for marketing, landing, auth, and public pages.
 - Static files are generated once and served without re-computation.
-
 
 _Last updated: April 18, 2025_
 
@@ -637,4 +675,3 @@ MIT © s00d
 ---
 
 Pull requests and contributions welcome.
-
