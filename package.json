@@ -51,17 +51,15 @@
     "@types/autocannon": "^7.12.7",
     "@types/bun": "^1.4.4",
     "@vitejs/plugin-vue": "^6.0.11",
-    "autocannon": "^8.0.0",
+    "autocannon": "^9.0.0",
     "better-sqlite3": "^13.2.0",
     "cross-env": "^10.1.0",
     "oxfmt": "^0.79.0",
     "oxlint": "^1.94.0",
     "oxlint-vue-rs": "^0.1.4",
+    "typescript": "^5.9.3",
     "vite": "^8.3.8",
     "vue-tsc": "^3.3.14"
-  },
-  "peerDependencies": {
-    "typescript": "^5.9.3"
   },
   "packageManager": "pnpm@9.15.4+sha512.b2dc20e2fc72b3e18848459b37359a32064663e5627a51e4c74b2c29dd8e8e0491483c3abb40789cfd578bf362fb6ba8261b05f0387d76792ed6e23ea3b1b6a0"
 }
