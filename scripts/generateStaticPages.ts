@@ -1,65 +1,30 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { mkdir, rm } from "node:fs/promises";
+import { resolve } from "node:path";
 import { staticRoutes } from "../config/ssg.config";
-import manifest from "../dist/server/.vite/ssr-manifest.json" assert { type: "json" };
-// @ts-expect-error no types from Vite SSR build
-import { render } from "../dist/server/entry-server.js";
+import { loadRenderer } from "../src/server/plugin/vite-ssr";
+
+process.env.NODE_ENV = "production";
 
 const outDir = resolve(process.cwd(), "dist/static");
-const template = await Bun.file("dist/client/index.html").text();
+// Old pages would be served instead of rendering; start clean.
+await rm(outDir, { recursive: true, force: true });
+await mkdir(outDir, { recursive: true });
 
-function startServer(): { process: Bun.Subprocess; ready: Promise<void> } {
-  const proc = Bun.spawn(["bun", "start"], {
-    stdout: "pipe",
-    stderr: "inherit",
-  });
+// Pages call the API (PUBLIC_API_URL) while rendering, so the server must be up.
+// Importing it starts listening in this process.
+await import("../src/server/index");
 
-  const ready = (async () => {
-    if (!proc.stdout) return;
+const renderer = await loadRenderer({ dev: false });
 
-    const reader = proc.stdout.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const output = decoder.decode(value);
-      process.stdout.write(output); // опционально: дублируем в консоль
-
-      if (output.includes("Elysia is running at")) {
-        break;
-      }
-    }
-  })();
-
-  return { process: proc, ready };
-}
-
-async function generate() {
-  const { process: serverProcess, ready } = startServer();
-  await ready;
-
-  console.log("🔄 Bun server ready. Starting static generation...");
-
-  for (const route of staticRoutes) {
-    const { html, state, preloadLinks, env, headTags } = await render(route, [], manifest);
-
-    const pageHtml = template
-      .replace("<!--preload-links-->", preloadLinks)
-      .replace("<!--ssr-outlet-->", html)
-      .replace("<!--head-tags-->", headTags)
-      .replace("<!--pinia-state-->", `window.__pinia = ${state}`)
-      .replace("<!--ssr-env-->", `<script>window.__env = ${JSON.stringify(env)}</script>`);
-
+// Env stays a slot (<!--ssr-env-->): the server fills it at request time.
+await Promise.all(
+  staticRoutes.map(async (route) => {
     const filePath = resolve(outDir, `.${route === "/" ? "/index" : route}.html`);
-    await mkdir(dirname(filePath), { recursive: true });
-    await writeFile(filePath, pageHtml);
+    const page = await renderer.render(route, new Headers());
+    if (page.status !== 200) throw new Error(`${route}: status ${page.status}, not prerendered`);
+    await Bun.write(filePath, page.html);
     console.log(`✅ Generated ${filePath}`);
-  }
+  }),
+);
 
-  console.log("⏹️ Killing Bun server...");
-  serverProcess.kill();
-}
-
-await generate();
+process.exit(0);

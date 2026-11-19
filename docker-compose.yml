@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     container_name: myapp
@@ -11,17 +9,17 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-#      - DB_HOST=mysql
-#      - DB_PORT=3306
-#      - DB_USER=myapp
-#      - DB_PASSWORD=secretpassword
-#      - DB_NAME=myapp
+      # Same-origin by default; set the public URLs when the app is behind another host/port.
+      # - PUBLIC_API_URL=https://example.com
+      # - PUBLIC_WS_URL=wss://example.com/ws
+      - SESSION_STORAGE=db
+    #      - DB_HOST=mysql
+    #      - DB_PORT=3306
+    #      - DB_USER=myapp
+    #      - DB_PASSWORD=secretpassword
+    #      - DB_NAME=myapp
     volumes:
-      - .:/app
-#      - ./data:/app/data
-      - /app/node_modules
+      - ./data:/app/data
 
 #  postgres:
 #    container_name: myapp-postgres
@@ -61,7 +59,7 @@ services:
 #      - mysql_data:/var/lib/mysql
 #    command: --default-authentication-plugin=mysql_native_password
 
-volumes:
-#  postgres_data:
-#  mysql_data:
-  redis_data:
+# volumes:
+#   postgres_data:
+#   mysql_data:
+#   redis_data:

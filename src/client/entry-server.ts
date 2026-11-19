@@ -1,16 +1,13 @@
 // src/client/entry-server.ts
-import { setGlobalCookie } from "@/shared/globalCookieJar";
+import { AsyncLocalStorage } from "node:async_hooks";
+import { setCookieReader } from "@/shared/globalCookieJar";
 import type { HeadTag } from "@unhead/schema";
 import { renderToString } from "@vue/server-renderer";
+import { localeFromPath } from "../../config/i18n.config";
+import { pageTranslations } from "@/server/translations";
+import { applyPageTranslations, routeKey } from "./i18n";
 import { createApp } from "./main";
 import { useUserStore } from "./store/user";
-import {
-  setupI18n,
-  getLocaleFromPath,
-  getNamespaceFromPath,
-  loadLocaleNamespace,
-  setI18nLanguage,
-} from "./plugins/i18n";
 
 export function renderPreloadLinks(modules: Set<string>, manifest: Record<string, string[]>) {
   const seen = new Set();
@@ -22,9 +19,9 @@ export function renderPreloadLinks(modules: Set<string>, manifest: Record<string
         if (!seen.has(file)) {
           seen.add(file);
           if (file.endsWith(".js")) {
-            links += `<link rel="modulepreload" crossorigin href="/${file}">`;
+            links += `<link rel="modulepreload" crossorigin href="${file.startsWith("/") ? file : `/${file}`}">`;
           } else if (file.endsWith(".css")) {
-            links += `<link rel="stylesheet" href="/${file}">`;
+            links += `<link rel="stylesheet" href="${file.startsWith("/") ? file : `/${file}`}">`;
           }
         }
       }
@@ -37,7 +34,7 @@ function renderHeadTags(tags: HeadTag[]): string {
   return tags
     .map(({ tag, props, textContent }) => {
       const attrs = Object.entries(props || {})
-        .map(([key, value]) => `${key}="${String(value).replace(/"/g, "&quot;")}"`)
+        .map(([key, value]) => `${key}="${String(value).replaceAll('"', "&quot;")}"`)
         .join(" ");
       const openTag = `<${tag}${attrs ? ` ${attrs}` : ""}>`;
       const closeTag = tag === "meta" || tag === "link" ? "" : `</${tag}>`;
@@ -46,22 +43,25 @@ function renderHeadTags(tags: HeadTag[]): string {
     .join("\n");
 }
 
-export async function render(url: string, headers: Headers, manifest: Record<string, string[]>) {
-  const { app, router, pinia, head } = createApp();
+// Each render sees only its own request's cookie, also across awaits of concurrent renders.
+const requestCookie = new AsyncLocalStorage<string>();
+setCookieReader(() => requestCookie.getStore() ?? "");
 
-  setGlobalCookie(headers.get("cookie"));
+export function render(url: string, headers: Headers, manifest: Record<string, string[]>) {
+  return requestCookie.run(headers.get("cookie") ?? "", () => renderApp(url, manifest));
+}
 
-  const locale = getLocaleFromPath(url);
-  const namespace = getNamespaceFromPath(url);
-
-  const i18n = setupI18n(locale);
-  app.use(i18n);
-
-  await loadLocaleNamespace(i18n, locale, namespace);
-  setI18nLanguage(i18n, locale);
+async function renderApp(url: string, manifest: Record<string, string[]>) {
+  const { app, router, pinia, head, i18n } = createApp();
 
   await router.push(url);
   await router.isReady();
+
+  // Dictionaries straight from disk; the same ones go to the client so hydration matches.
+  const locale = localeFromPath(url);
+  const route = routeKey(router.currentRoute.value);
+  const translations = await pageTranslations(locale, route);
+  applyPageTranslations(i18n, locale, route, translations);
 
   const store = useUserStore(pinia);
   await store.get();
@@ -73,12 +73,10 @@ export async function render(url: string, headers: Headers, manifest: Record<str
   const state = JSON.stringify(pinia.state.value);
   const preloadLinks = renderPreloadLinks(ctx.modules || new Set(), manifest);
 
-  const env: Record<string, string> = {};
-  for (const key in process.env) {
-    if (key.startsWith("PUBLIC_") && process.env[key] !== undefined) {
-      env[key] = process.env[key];
-    }
-  }
+  // The catch-all route is a real 404 for crawlers and caches, not a 200 page.
+  const status = router.currentRoute.value.name === "NotFound" ? 404 : 200;
 
-  return { html, state, preloadLinks, env, headTags, locale };
+  const i18nState = JSON.stringify({ locale, route, translations });
+
+  return { html, state, i18nState, preloadLinks, headTags, locale, status };
 }

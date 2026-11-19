@@ -1,200 +1,110 @@
-import { db } from "@/server/db/init";
-import { sessions } from "@/server/models/session";
-import { users, type User } from "@/server/models/user";
-import { eq } from "drizzle-orm";
+// src/server/controllers/auth.ts
 import { randomUUIDv7 } from "bun";
-import bcrypt from "bcryptjs";
-import type { Logger } from "@bogeychan/elysia-logger/types";
-import type { TFunction } from "i18next";
-import { SECURITY_CONFIG } from "../../../config/security.config";
-import type {SessionData, SessionStore} from "@/server/services/session-store";
-import type { Context as ElysiaContext } from "elysia";
-import type {Server} from "elysia/universal";
-import type {Cookie, ElysiaCookie} from "elysia/cookies";
-import type {StatusMap} from "elysia/utils";
-import type {HTTPHeaders} from "elysia/types";
+import { eq } from "drizzle-orm";
+import type { AppContext } from "@/server/context";
+import { db } from "@/server/db/init";
+import { type User, users } from "@/server/models/user";
 
 export interface AuthBody {
   email: string;
   password: string;
 }
 
+// bcrypt: existing hashes keep working (Bun.password.verify reads them), hashing is off the event loop.
+const hash = (password: string) => Bun.password.hash(password, { algorithm: "bcrypt", cost: 10 });
+// Unknown emails are verified against this, so the response time does not reveal which emails exist.
+const DUMMY_HASH = await hash(randomUUIDv7());
 
-export type AppContext = ElysiaContext & {
-  user: User;
-  log: Logger;
-  db: typeof db;
-  t: TFunction;
-  session: SessionData;
-  sessionStore: SessionStore;
-  cookie: Record<string, Cookie<string | undefined>>;
-  sessionId: string;
-  csrfToken: string | null;
-  validateCsrf: () => boolean;
-  getCsrfToken: () => string;
-  server: Server | null;
-  set: {
-    status?: number | keyof StatusMap;
-    headers: HTTPHeaders;
-    redirect?: string;
-    cookie?: Record<string, ElysiaCookie>;
-  };
-};
+type Ctx = Pick<AppContext, "set" | "log" | "t" | "validateCsrf" | "startSession">;
 
-export async function registerController({ body, set, log, t, validateCsrf }: AppContext & { body: AuthBody }) {
+export async function registerController({ body, set, log, t, validateCsrf, startSession }: Ctx & { body: AuthBody }) {
   if (!validateCsrf()) {
-    log.warn("Registration failed: invalid CSRF token");
     set.status = 403;
-    return { error: t("auth:invalid_csrf") };
+    return { error: t("auth.invalid_csrf") };
   }
 
   const { email, password } = body;
-  log.info({ email }, "Attempting registration");
-
-  const existing = db.select().from(users).where(eq(users.email, email)).get();
-  if (existing) {
-    log.warn({ email }, "Registration failed: user already exists");
+  if (db.select({ id: users.id }).from(users).where(eq(users.email, email)).get()) {
     set.status = 409;
-    return { error: t("auth:user_exists") };
+    return { error: t("auth.user_exists") };
   }
 
-  const hash = bcrypt.hashSync(password, 10);
-  const apiKey = randomUUIDv7();
-
-  const inserted = await db.insert(users).values({ email, passwordHash: hash, apiKey }).returning();
-  const user = inserted[0];
-
+  const [user] = await db
+    .insert(users)
+    .values({ email, passwordHash: await hash(password), apiKey: randomUUIDv7() })
+    .returning();
   if (!user) {
     log.error({ email }, "Registration failed: DB insert returned empty");
     set.status = 500;
-    return { error: t("auth:registration_failed") };
+    return { error: t("auth.registration_failed") };
   }
 
-  const sessionId = randomUUIDv7();
-  const now = Date.now();
-  const expiresAt = now + 1000 * 60 * 60 * 24;
-
-  await db.insert(sessions).values({
-    id: sessionId,
-    userId: user.id,
-    createdAt: new Date(now),
-    expiresAt: new Date(expiresAt),
-  });
-
-  log.info({ email, userId: user.id }, "User registered successfully");
-
-  set.headers["Set-Cookie"] =
-    `${SECURITY_CONFIG.sessionCookieName}=${sessionId}; Path=/; HttpOnly; Max-Age=${SECURITY_CONFIG.sessionMaxAge}`;
-  return { message: t("auth:registered"), userId: user.id };
+  await startSession(user.id);
+  log.info({ userId: user.id }, "User registered");
+  return { message: t("auth.registered"), userId: user.id };
 }
 
-export async function loginController(ctx: AppContext & { body: AuthBody }) {
-  if (!ctx.validateCsrf()) {
-    ctx.log.warn("Login failed: invalid CSRF token");
-    ctx.set.status = 403;
-    return { error: ctx.t("auth:invalid_csrf") };
+export async function loginController({ body, set, log, t, validateCsrf, startSession }: Ctx & { body: AuthBody }) {
+  if (!validateCsrf()) {
+    set.status = 403;
+    return { error: t("auth.invalid_csrf") };
   }
 
-  const { email, password } = ctx.body;
-  ctx.log.info({ email }, "Attempting login");
-
-  const user = db.select().from(users).where(eq(users.email, email)).get();
-  if (!user) {
-    ctx.log.warn({ email }, "Login failed: user not found");
-    ctx.set.status = 401;
-    return { error: ctx.t("auth:invalid_credentials") };
+  const user = db.select().from(users).where(eq(users.email, body.email)).get();
+  const ok = await Bun.password.verify(body.password, user?.passwordHash ?? DUMMY_HASH);
+  if (!user || !ok) {
+    log.warn("Login failed");
+    set.status = 401;
+    return { error: t("auth.invalid_credentials") };
   }
 
-  if (!bcrypt.compareSync(password, user.passwordHash)) {
-    ctx.log.warn({ email }, "Login failed: invalid password");
-    ctx.set.status = 401;
-    return { error: ctx.t("auth:invalid_credentials") };
-  }
-
-  // ❌ удалить текущую (гостевую) сессию, если нужно
-  await ctx.sessionStore?.delete?.(ctx.sessionId); // только если у тебя есть метод удаления
-
-  // ✅ создать новую авторизованную сессию
-  const sessionId = randomUUIDv7();
-  const now = Date.now();
-  const expiresAt = new Date(now + SECURITY_CONFIG.sessionMaxAge * 1000);
-  const csrfToken = randomUUIDv7();
-
-  await ctx.sessionStore.set({
-    id: sessionId,
-    userId: user.id,
-    csrfToken,
-    createdAt: new Date(now),
-    expiresAt,
-  });
-
-  // ✅ обновить реактивные куки
-  ctx.cookie[SECURITY_CONFIG.sessionCookieName].set({
-    value: sessionId,
-    path: "/",
-    httpOnly: true,
-    maxAge: SECURITY_CONFIG.sessionMaxAge,
-  });
-
-  ctx.cookie[SECURITY_CONFIG.csrfCookieName].set({
-    value: csrfToken,
-    path: "/",
-    sameSite: "strict",
-  });
-
-  ctx.log.info({ email, userId: user.id }, "User logged in successfully");
-
-  return { message: ctx.t("auth:login_success") };
+  await startSession(user.id);
+  log.info({ userId: user.id }, "User logged in");
+  return { message: t("auth.login_success") };
 }
 
-export async function logoutController({ cookie, log, t, sessionId, sessionStore }: AppContext) {
-  log.info("User logged out");
-
-  await sessionStore?.delete?.(sessionId); // только если у тебя есть метод удаления
-
-  // Удаляем куки реактивно
-  cookie[SECURITY_CONFIG.sessionCookieName].remove();
-  cookie[SECURITY_CONFIG.csrfCookieName]?.remove(); // опционально, если есть
-
-  return { message: t("auth:logout_success") };
+export async function logoutController({
+  set,
+  t,
+  validateCsrf,
+  endSession,
+}: Pick<AppContext, "set" | "t" | "validateCsrf" | "endSession">) {
+  if (!validateCsrf()) {
+    set.status = 403;
+    return { error: t("auth.invalid_csrf") };
+  }
+  await endSession();
+  return { message: t("auth.logout_success") };
 }
 
-export async function profileController({ user, log, t }: { user: User; log: Logger; t: TFunction }) {
-  log.info({ email: user.email }, "Fetching profile");
-  return {
-    id: user.id,
-    email: user.email,
-    apiKey: user.apiKey,
-    message: t("auth:profile_info"),
-  };
+export function profileController({ user, t }: { user: User; t: AppContext["t"] }) {
+  return { id: user.id, email: user.email, apiKey: user.apiKey, message: t("auth.profile_info") };
 }
 
-export async function flashController(
-  ctx: AppContext & { body: { message: string | unknown }; params: { userId: string } },
-) {
-  const targetUserId = Number(ctx.params.userId);
-
-  if (ctx.user.id !== targetUserId) {
-    ctx.log.warn("Flash denied: unauthorized target");
-    return new Response("Forbidden", { status: 403 });
+export function flashController({
+  user,
+  body,
+  params,
+  set,
+  log,
+  t,
+  server,
+  validateCsrf,
+}: Pick<AppContext, "set" | "log" | "t" | "server" | "validateCsrf"> & {
+  user: User;
+  body: { message: string };
+  params: { userId: string };
+}) {
+  if (!validateCsrf()) {
+    set.status = 403;
+    return { error: t("auth.invalid_csrf") };
+  }
+  if (String(user.id) !== params.userId) {
+    set.status = 403;
+    return { error: "Forbidden" };
   }
 
-  const message = ctx.body.message;
-
-  if (!message || typeof message !== "string") {
-    return new Response("Invalid message", { status: 400 });
-  }
-
-  const sent = ctx.server?.publish(`flash:${targetUserId}`, JSON.stringify({ type: "flash", message }));
-  // orr all
-  // const sent =
-  //   ctx.server?.publish(`flash:all`, JSON.stringify({ type: "flash", message }));
-
-  if (sent === 0) {
-    ctx.log.info(`Flash not delivered (no clients) for user ${targetUserId}`);
-  } else {
-    ctx.log.info(`Flash sent to user ${targetUserId}`);
-  }
-
+  const sent = server?.publish(`flash:${user.id}`, JSON.stringify({ type: "flash", message: body.message }));
+  log.info({ userId: user.id, delivered: !!sent }, "Flash");
   return { success: true };
 }

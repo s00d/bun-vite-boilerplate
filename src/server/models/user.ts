@@ -9,7 +9,9 @@ export const users = sqliteTable(
     email: text("email").notNull().unique(),
     passwordHash: text("password_hash").notNull(),
     apiKey: text("api_key"),
-    createdAt: integer("created_at", { mode: "timestamp" }).notNull().default(sql`CURRENT_TIMESTAMP`),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
     emailIdx: index("users_email_idx").on(table.email),

@@ -1,19 +1,13 @@
 // src/server/routes/protected.ts
-import { Elysia } from "elysia";
-import { profileController, flashController } from "@/server/controllers/auth";
-import type { User } from "@/server/models/user";
+import { Elysia, t } from "elysia";
+import type { AppContextPlugin } from "@/server/context";
+import { flashController, profileController } from "@/server/controllers/auth";
 
-type AppContext = {
-  user: User;
-};
-
-export const protectedRoutes = new Elysia({ prefix: "/api", tags: ["protected"] })
-  .derive(async (ctx): Promise<AppContext> => {
-    // @ts-expect-error - ctx.user добавляется sessionPlugin-ом
-    const user = ctx.user;
-    if (!user) throw new Response("Unauthorized", { status: 401 });
-    return { user };
-  })
-  .get("/profile", profileController)
-  .post("/flash/:userId", flashController);
-
+export const protectedRoutes = (context: AppContextPlugin) =>
+  new Elysia({ prefix: "/api", tags: ["protected"] })
+    .use(context)
+    .resolve(({ user, status }) => (user ? { user } : status(401, "Unauthorized")))
+    .get("/profile", (ctx) => profileController(ctx))
+    .post("/flash/:userId", (ctx) => flashController(ctx), {
+      body: t.Object({ message: t.String({ minLength: 1 }) }),
+    });

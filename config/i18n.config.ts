@@ -1,36 +1,28 @@
+// config/i18n.config.ts — shared by server and client (@i18n-micro/node, @i18n-micro/vue).
 export const I18N_CONFIG = {
   /**
-   * Absolute path to the directory with translation files (e.g. lang/en/common.json)
+   * Translation folder, Nuxt I18n Micro layout:
+   * locales/<locale>.json (root, every page) and locales/pages/<route>/<locale>.json
+   * (route dictionaries, loaded with their page; `auth/login` ↔ route name `auth-login`).
    */
-  localesPath: "lang",
+  localesPath: "locales",
 
-  /**
-   * Default language to use if the request language cannot be determined
-   */
-  fallbackLng: "en",
+  /** Locale of unprefixed URLs, and the fallback for missing keys. */
+  defaultLocale: "en",
 
-  /**
-   * Languages to preload at startup
-   */
-  preload: ["en", "ru"],
+  /** Every other locale is a URL prefix: /ru/about. */
+  locales: [
+    { code: "en", iso: "en-US", displayName: "English" },
+    { code: "ru", iso: "ru-RU", displayName: "Русский" },
+  ],
+} as const;
 
-  /**
-   * Supported languages (used for validation and auto-selection)
-   */
-  supportedLngs: ["en", "ru"],
+export const LOCALE_CODES: readonly string[] = I18N_CONFIG.locales.map((l) => l.code);
 
-  /**
-   * Namespaces (translation files), e.g. lang/en/common.json
-   */
-  namespaces: ["common", "auth", "profile", "meta", "home"],
-
-  /**
-   * Default namespace
-   */
-  defaultNS: "common",
-
-  /**
-   * Enable verbose logging (true in development)
-   */
-  debug: false,
-};
+/** `/ru/about` → `ru`; an unprefixed path is the default locale. */
+export function localeFromPath(path: string): string {
+  const first = path.split("/").find(Boolean);
+  return first && first !== I18N_CONFIG.defaultLocale && LOCALE_CODES.includes(first)
+    ? first
+    : I18N_CONFIG.defaultLocale;
+}

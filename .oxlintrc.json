@@ -1,0 +1,138 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["./node_modules/oxlint-vue-rs/configs/recommended.json"],
+  "plugins": ["vue", "typescript", "unicorn", "oxc", "import", "promise", "node"],
+  "jsPlugins": [
+    {
+      "name": "vue-rs",
+      "specifier": "oxlint-vue-rs"
+    }
+  ],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn",
+    "perf": "warn"
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2024": true
+  },
+  "globals": {
+    "Bun": "readonly"
+  },
+  "ignorePatterns": ["dist/**", "data/**", "drizzle/**", "public/**", "generate-doc.cjs", "**/*.d.ts"],
+  "rules": {
+    "eqeqeq": [
+      "error",
+      "always",
+      {
+        "null": "ignore"
+      }
+    ],
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrors": "none"
+      }
+    ],
+    "no-console": "off",
+    "no-param-reassign": "warn",
+    "no-else-return": "warn",
+    "no-useless-catch": "error",
+    "no-throw-literal": "error",
+    "require-await": "off",
+    "typescript/no-explicit-any": "off",
+    "typescript/consistent-type-imports": [
+      "warn",
+      {
+        "fixStyle": "inline-type-imports"
+      }
+    ],
+    "typescript/no-non-null-assertion": "warn",
+    "typescript/ban-ts-comment": [
+      "warn",
+      {
+        "ts-expect-error": "allow-with-description",
+        "ts-ignore": true
+      }
+    ],
+    "typescript/prefer-ts-expect-error": "warn",
+    "import/no-cycle": "error",
+    "import/no-duplicates": "error",
+    "import/no-self-import": "error",
+    "import/first": "warn",
+    "unicorn/prefer-node-protocol": "error",
+    "unicorn/no-useless-spread": "warn",
+    "unicorn/prefer-string-replace-all": "warn",
+    "unicorn/no-instanceof-array": "error",
+    "unicorn/throw-new-error": "error",
+    "promise/no-return-wrap": "error",
+    "promise/param-names": "error",
+    "promise/catch-or-return": "off",
+    "vue-rs/html-self-closing": [
+      "warn",
+      {
+        "html": {
+          "void": "always",
+          "normal": "always",
+          "component": "always"
+        }
+      }
+    ],
+    "vue-rs/component-name-in-template-casing": [
+      "warn",
+      "PascalCase",
+      {
+        "registeredComponentsOnly": false
+      }
+    ],
+    "vue-rs/block-order": [
+      "warn",
+      {
+        "order": ["script", "template", "style"]
+      }
+    ],
+    "vue-rs/no-unused-refs": "warn",
+    "vue-rs/no-useless-v-bind": "warn",
+    "vue-rs/no-useless-mustaches": "warn",
+    "vue-rs/prefer-true-attribute-shorthand": "warn",
+    "vue-rs/no-v-html": "warn",
+    "vue-rs/require-explicit-emits": "error",
+    "vue-rs/no-unused-emit-declarations": "warn",
+    "vue-rs/define-macros-order": "warn",
+    "vue-rs/v-on-event-hyphenation": [
+      "warn",
+      "always",
+      {
+        "autofix": true
+      }
+    ],
+    "vue-rs/padding-line-between-blocks": "warn",
+    "vue-rs/singleline-html-element-content-newline": "off",
+    "vue-rs/multiline-html-element-content-newline": "off",
+    "vue-rs/max-attributes-per-line": "off",
+    "vue-rs/html-indent": "off",
+    "vue-rs/html-closing-bracket-newline": "off",
+    "vue-rs/html-closing-bracket-spacing": "off",
+    "vue-rs/first-attribute-linebreak": "off",
+    "vue-rs/mustache-interpolation-spacing": "off",
+    "vue-rs/html-quotes": "off",
+    "import/no-unassigned-import": "off",
+    "eslint/no-underscore-dangle": "off",
+    "import/no-named-as-default-member": "off",
+    "unicorn/prefer-add-event-listener": "off"
+  },
+  "overrides": [
+    {
+      "files": ["tests/**", "scripts/**"],
+      "rules": {
+        "typescript/no-non-null-assertion": "off"
+      }
+    }
+  ]
+}

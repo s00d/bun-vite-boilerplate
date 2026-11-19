@@ -1,0 +1,11 @@
+.git
+.idea
+node_modules
+dist
+data/*
+!data/.gitkeep
+.env
+.env.*
+!.env.example
+*.log
+coverage
