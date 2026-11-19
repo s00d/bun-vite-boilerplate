@@ -10,9 +10,8 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["bun"],
     "resolveJsonModule": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     }
   },
   "include": ["env.d.ts", "src", "types", "tests", "scripts", "vite.config.ts", "twilight.config.ts"],
