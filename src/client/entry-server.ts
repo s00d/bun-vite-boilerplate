@@ -3,15 +3,11 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import { setCookieReader } from "@/shared/globalCookieJar";
 import type { HeadTag } from "@unhead/schema";
 import { renderToString } from "@vue/server-renderer";
+import { localeFromPath } from "../../config/i18n.config";
+import { pageTranslations } from "@/server/translations";
+import { applyPageTranslations, routeKey } from "./i18n";
 import { createApp } from "./main";
 import { useUserStore } from "./store/user";
-import {
-  setupI18n,
-  getLocaleFromPath,
-  getNamespaceFromPath,
-  loadLocaleNamespace,
-  setI18nLanguage,
-} from "./plugins/i18n";
 
 export function renderPreloadLinks(modules: Set<string>, manifest: Record<string, string[]>) {
   const seen = new Set();
@@ -56,19 +52,16 @@ export function render(url: string, headers: Headers, manifest: Record<string, s
 }
 
 async function renderApp(url: string, manifest: Record<string, string[]>) {
-  const { app, router, pinia, head } = createApp();
-
-  const locale = getLocaleFromPath(url);
-  const namespace = getNamespaceFromPath(url);
-
-  const i18n = setupI18n(locale);
-  app.use(i18n);
-
-  await loadLocaleNamespace(i18n, locale, namespace);
-  setI18nLanguage(i18n, locale);
+  const { app, router, pinia, head, i18n } = createApp();
 
   await router.push(url);
   await router.isReady();
+
+  // Dictionaries straight from disk; the same ones go to the client so hydration matches.
+  const locale = localeFromPath(url);
+  const route = routeKey(router.currentRoute.value);
+  const translations = await pageTranslations(locale, route);
+  applyPageTranslations(i18n, locale, route, translations);
 
   const store = useUserStore(pinia);
   await store.get();
@@ -83,5 +76,7 @@ async function renderApp(url: string, manifest: Record<string, string[]>) {
   // The catch-all route is a real 404 for crawlers and caches, not a 200 page.
   const status = router.currentRoute.value.name === "NotFound" ? 404 : 200;
 
-  return { html, state, preloadLinks, headTags, locale, status };
+  const i18nState = JSON.stringify({ locale, route, translations });
+
+  return { html, state, i18nState, preloadLinks, headTags, locale, status };
 }

@@ -14,6 +14,8 @@ import type { ViteDevServer } from "vite";
 export interface RenderResult {
   html: string;
   state: string;
+  /** `window.__i18n`: the page's dictionaries for the client. */
+  i18nState: string;
   preloadLinks: string;
   headTags: string;
   locale: string;
@@ -60,7 +62,7 @@ export function fillTemplate(template: string, r: RenderResult): string {
     "<!--locale-->": r.locale,
     "<!--ssr-outlet-->": r.html,
     "<!--head-tags-->": r.headTags,
-    "<!--pinia-state-->": `window.__pinia = ${safeJson(r.state)}`,
+    "<!--pinia-state-->": `window.__pinia = ${safeJson(r.state)}; window.__i18n = ${safeJson(r.i18nState)}`,
   };
   return template.replaceAll(/<!--[a-z-]+-->/g, (slot) => slots[slot] ?? slot);
 }

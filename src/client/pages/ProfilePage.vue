@@ -11,11 +11,11 @@ user.value = store.user;
 
 <template>
   <div class="p-6 max-w-xl mx-auto bg-surface text-foreground rounded shadow space-y-6">
-    <h1 class="text-2xl font-bold">Profile</h1>
+    <h1 class="text-2xl font-bold">{{ $t("title") }}</h1>
 
     <div v-if="user" class="space-y-2">
-      <p><span class="font-medium text-muted-foreground">Email:</span> {{ user.email }}</p>
-      <p><span class="font-medium text-muted-foreground">API Key:</span> {{ user.apiKey }}</p>
+      <p><span class="font-medium text-muted-foreground">{{ $t("email") }}:</span> {{ user.email }}</p>
+      <p><span class="font-medium text-muted-foreground">{{ $t("apiKey") }}:</span> {{ user.apiKey }}</p>
     </div>
 
     <div v-else class="text-error">

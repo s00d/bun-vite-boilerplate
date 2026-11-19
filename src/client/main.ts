@@ -3,6 +3,7 @@ import { createHead } from "@vueuse/head";
 import { createPinia } from "pinia";
 import { createSSRApp } from "vue";
 import App from "./App.vue";
+import { setupI18n } from "./i18n";
 import { createRouter } from "./router";
 import "./main.css";
 
@@ -12,8 +13,9 @@ export function createApp() {
   const pinia = createPinia();
   const router = createRouter();
   const head = createHead();
+  const i18n = setupI18n(router);
 
-  app.use(pinia).use(router).use(head);
+  app.use(pinia).use(router).use(head).use(i18n);
 
-  return { app, pinia, router, head };
+  return { app, pinia, router, head, i18n };
 }

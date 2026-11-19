@@ -53,6 +53,14 @@ describe("SSR", () => {
     expect((await renderer.render("/about", new Headers())).status).toBe(200);
   });
 
+  it("renders the URL's locale with its route dictionary and sends it to the client", async () => {
+    const ru = await page(undefined, "/ru");
+    expect(ru).toContain("Главная страница");
+    expect(ru).toContain('<html lang="ru"');
+    expect(ru).toContain('window.__i18n = {"locale":"ru","route":"home"');
+    expect(await page(undefined, "/")).toContain("Home Page");
+  });
+
   it("leaves the env slot for the server to fill", async () => {
     expect(await page()).toContain("<!--ssr-env-->");
   });

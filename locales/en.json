@@ -1,0 +1,20 @@
+{
+  "common": {
+    "hello": "Hello",
+    "welcome": "Welcome to our app"
+  },
+  "auth": {
+    "invalid_csrf": "Invalid CSRF token",
+    "user_exists": "User already exists",
+    "registration_failed": "Registration failed",
+    "registered": "Registered successfully",
+    "invalid_credentials": "Invalid credentials",
+    "login_success": "Logged in successfully",
+    "logout_success": "Logged out",
+    "profile_info": "Your profile information"
+  },
+  "meta": {
+    "health": "Server is healthy",
+    "info": "Server runtime information"
+  }
+}

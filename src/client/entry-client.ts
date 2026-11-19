@@ -1,37 +1,39 @@
 // src/client/entry-client.ts
+import { localeFromPath } from "../../config/i18n.config";
+import { applyPageTranslations, type PageTranslations, routeKey } from "./i18n";
 import { createApp } from "./main";
+import { api } from "@/shared/axios";
 import { useUserStore } from "./store/user";
-import {
-  setupI18n,
-  getLocaleFromPath,
-  getNamespaceFromPath,
-  loadLocaleNamespace,
-  setI18nLanguage,
-} from "./plugins/i18n";
 
-const { app, router, pinia } = createApp();
+const { app, router, pinia, i18n } = createApp();
 
-if (window.__pinia) {
-  pinia.state.value = window.__pinia;
+if (window.__pinia) pinia.state.value = window.__pinia;
+
+// Dictionaries already here, as `locale:route` (SSR sent the first page's).
+const loaded = new Set<string>();
+if (window.__i18n) {
+  const { locale, route, translations } = window.__i18n;
+  applyPageTranslations(i18n, locale, route, translations);
+  loaded.add(`${locale}:${route}`);
 }
 
-// Инициализация i18n до роутера
-const initialPath = window.location.pathname; // router has not navigated yet
-const initialLocale = getLocaleFromPath(initialPath);
-
-const i18n = setupI18n(initialLocale);
-app.use(i18n);
-
-// Роут-хук для ленивой загрузки перевода
 router.beforeEach(async (to) => {
-  const locale = getLocaleFromPath(to.path);
-  const namespace = getNamespaceFromPath(to.path);
-
-  await loadLocaleNamespace(i18n, locale, namespace);
-  setI18nLanguage(i18n, locale);
+  const locale = localeFromPath(to.path);
+  const route = routeKey(to);
+  if (!loaded.has(`${locale}:${route}`)) {
+    const { data } = await api.get<PageTranslations>("/api/i18n", { params: { locale, route } });
+    loaded.add(`${locale}:${route}`);
+    applyPageTranslations(i18n, locale, route, data);
+    return;
+  }
+  i18n.global.setRoute(route);
+  i18n.global.locale.value = locale;
 });
 
-// Запуск приложения
+router.afterEach((to) => {
+  document.documentElement.lang = localeFromPath(to.path);
+});
+
 // Mount from the SSR state at once; then refresh the user (prerendered pages carry the guest state).
 await router.isReady();
 app.mount("#app");

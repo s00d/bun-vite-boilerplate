@@ -4,15 +4,13 @@ import { useHead } from "@vueuse/head";
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useUserStore } from "../store/user";
-import { useI18n } from "vue-i18n";
+import { useI18n } from "@i18n-micro/vue";
 import LocaleSwitcher from "@/client/components/LocaleSwitcher.vue";
 import { useFlashMessages } from "@/client/composables/useFlashMessages";
 
-useHead({
-  title: "Home Page - My App",
-});
-
 const { t } = useI18n();
+// keys come from locales/pages/home/<locale>.json (the route dictionary)
+useHead({ title: computed(() => `${t("title")} - My App`) });
 const count = ref(0);
 const store = useUserStore();
 const isLoggedIn = computed(() => store.isLoggedIn);
@@ -61,33 +59,33 @@ async function logout() {
       <button class="btn btn-solid px-4 py-1" @click="sendFlash">Send Flash</button>
     </div>
 
-    <h1 class="text-2xl font-bold">{{ t("home.title") }}</h1>
-    <p class="text-muted">{{ t("home.welcome") }}</p>
+    <h1 class="text-2xl font-bold">{{ t("title") }}</h1>
+    <p class="text-muted">{{ t("welcome") }}</p>
 
     <RouterLink to="/profile" class="text-link underline">
-      {{ t("home.go_to_profile") }}
+      {{ t("go_to_profile") }}
     </RouterLink>
 
     <div class="mt-4">
       <template v-if="isLoggedIn">
-        <span class="text-success font-medium">{{ t("home.logged_in") }}</span>
+        <span class="text-success font-medium">{{ t("logged_in") }}</span>
         <button class="ml-4 text-error underline hover:opacity-80" @click="logout">
-          {{ t("home.logout") }}
+          {{ t("logout") }}
         </button>
       </template>
       <template v-else>
         <RouterLink to="/auth/login" class="mr-2 text-primary hover:underline">
-          {{ t("home.login") }}
+          {{ t("login") }}
         </RouterLink>
         |
         <RouterLink to="/auth/register" class="ml-2 text-primary hover:underline">
-          {{ t("home.register") }}
+          {{ t("register") }}
         </RouterLink>
       </template>
     </div>
 
     <div>
-      <p class="text-lg font-medium">{{ t("home.counter") }}: <span class="text-strong">{{ count }}</span></p>
+      <p class="text-lg font-medium">{{ t("counter") }}: <span class="text-strong">{{ count }}</span></p>
       <div class="mt-2 flex gap-2">
         <button class="btn btn-outline px-4 py-2" @click="count--">-</button>
         <button class="btn btn-solid px-4 py-2" @click="count++">+</button>

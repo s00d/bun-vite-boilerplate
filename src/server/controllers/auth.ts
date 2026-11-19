@@ -20,13 +20,13 @@ type Ctx = Pick<AppContext, "set" | "log" | "t" | "validateCsrf" | "startSession
 export async function registerController({ body, set, log, t, validateCsrf, startSession }: Ctx & { body: AuthBody }) {
   if (!validateCsrf()) {
     set.status = 403;
-    return { error: t("auth:invalid_csrf") };
+    return { error: t("auth.invalid_csrf") };
   }
 
   const { email, password } = body;
   if (db.select({ id: users.id }).from(users).where(eq(users.email, email)).get()) {
     set.status = 409;
-    return { error: t("auth:user_exists") };
+    return { error: t("auth.user_exists") };
   }
 
   const [user] = await db
@@ -36,18 +36,18 @@ export async function registerController({ body, set, log, t, validateCsrf, star
   if (!user) {
     log.error({ email }, "Registration failed: DB insert returned empty");
     set.status = 500;
-    return { error: t("auth:registration_failed") };
+    return { error: t("auth.registration_failed") };
   }
 
   await startSession(user.id);
   log.info({ userId: user.id }, "User registered");
-  return { message: t("auth:registered"), userId: user.id };
+  return { message: t("auth.registered"), userId: user.id };
 }
 
 export async function loginController({ body, set, log, t, validateCsrf, startSession }: Ctx & { body: AuthBody }) {
   if (!validateCsrf()) {
     set.status = 403;
-    return { error: t("auth:invalid_csrf") };
+    return { error: t("auth.invalid_csrf") };
   }
 
   const user = db.select().from(users).where(eq(users.email, body.email)).get();
@@ -55,12 +55,12 @@ export async function loginController({ body, set, log, t, validateCsrf, startSe
   if (!user || !ok) {
     log.warn("Login failed");
     set.status = 401;
-    return { error: t("auth:invalid_credentials") };
+    return { error: t("auth.invalid_credentials") };
   }
 
   await startSession(user.id);
   log.info({ userId: user.id }, "User logged in");
-  return { message: t("auth:login_success") };
+  return { message: t("auth.login_success") };
 }
 
 export async function logoutController({
@@ -71,14 +71,14 @@ export async function logoutController({
 }: Pick<AppContext, "set" | "t" | "validateCsrf" | "endSession">) {
   if (!validateCsrf()) {
     set.status = 403;
-    return { error: t("auth:invalid_csrf") };
+    return { error: t("auth.invalid_csrf") };
   }
   await endSession();
-  return { message: t("auth:logout_success") };
+  return { message: t("auth.logout_success") };
 }
 
 export function profileController({ user, t }: { user: User; t: AppContext["t"] }) {
-  return { id: user.id, email: user.email, apiKey: user.apiKey, message: t("auth:profile_info") };
+  return { id: user.id, email: user.email, apiKey: user.apiKey, message: t("auth.profile_info") };
 }
 
 export function flashController({
@@ -97,7 +97,7 @@ export function flashController({
 }) {
   if (!validateCsrf()) {
     set.status = 403;
-    return { error: t("auth:invalid_csrf") };
+    return { error: t("auth.invalid_csrf") };
   }
   if (String(user.id) !== params.userId) {
     set.status = 403;

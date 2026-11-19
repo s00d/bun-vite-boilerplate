@@ -14,7 +14,7 @@ COPY --from=build /app/dist ./dist
 COPY tsconfig.json ./
 COPY src ./src
 COPY config ./config
-COPY lang ./lang
+COPY locales ./locales
 COPY drizzle ./drizzle
 COPY public ./public
 RUN mkdir -p data && chown bun:bun data

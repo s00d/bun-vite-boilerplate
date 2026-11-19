@@ -44,9 +44,5 @@ export default defineConfig(({ command, mode }) => {
         output: isSSR ? { entryFileNames: "[name].js" } : {},
       },
     },
-    ssr: {
-      // Build only: in dev Vite's module runner can't eval CJS builds (vue), Bun imports them natively.
-      noExternal: isSSR ? ["vue", "@vue/server-renderer", "vue-router", "vue-i18n", "pinia"] : [],
-    },
   };
 });

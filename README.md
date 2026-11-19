@@ -21,9 +21,9 @@ Ideal for building isomorphic applications with authentication, real-time featur
 - ✅ CSRF protection, CORS, CSP
 - ✅ **i18n with dynamic translation loading**
   - 🌐 Auto-detect locale from route
-  - 📦 Load only necessary translation namespace per page
+  - 📦 Loads only the dictionary of the page being opened
   - 🧠 SSR/SSG compatible
-  - 🧩 Backend integration via `i18next-fs-backend` and Elysia route
+  - 🧩 [nuxt-i18n-micro](https://github.com/s00d/nuxt-i18n-micro) packages: `@i18n-micro/vue` + `@i18n-micro/node`
 
 ---
 
@@ -339,113 +339,58 @@ No extra configuration is needed — SSR automatically includes the result of `u
 
 ## 🌐 Internationalization (i18n)
 
-Localization is powered by `vue-i18n`, integrated with **SSR + SPA** support and **automatic translation loading based on the current route**.
+Powered by [nuxt-i18n-micro](https://github.com/s00d/nuxt-i18n-micro) outside Nuxt:
+`@i18n-micro/vue` in the app, `@i18n-micro/node` on the server, one folder of JSON for both.
 
----
+### Files
 
-### 📌 Overview
-
-- Translations are organized by **locale** and **namespace**, e.g.  
-  `lang/en/home.json`, `lang/ru/profile.json`
-- The namespace is automatically derived from the route:
-  - `/en/profile` → namespace: `profile`
-  - `/auth/login` → namespace: `auth`
-  - `/` → namespace: `home` (default)
-
-🔁 **On the client, translations are automatically loaded based on the current page name**. You don't need to manually specify a namespace — it's inferred from the URL.
-
----
-
-### 🧠 Usage in Components
-
-```ts
-import { useI18n } from "vue-i18n";
-const { t } = useI18n();
-
-t("home.title"); // => "Home" (en), "Главная" (ru)
+```
+locales/en.json                  # root: every page and the API (auth.*, meta.*, common.*)
+locales/ru.json
+locales/pages/home/en.json       # route dictionary of the route named `home`
+locales/pages/auth/login/ru.json # route `auth-login`
 ```
 
----
+A key is looked up in the current route's dictionary, then in the root, then in the
+default locale (`en`). Route dictionaries are named after the vue-router route `name`.
 
-### 📦 Key Format
+### How it loads
 
-- All translation keys use the format `namespace.key`
-- Translations are fetched dynamically based on the current route
+- **SSR** (`src/client/entry-server.ts`) reads the dictionaries from disk
+  (`src/server/translations.ts`), renders, and sends the page's dictionaries to the
+  client in `window.__i18n`, so hydration matches without a request.
+- **Client navigation** to a page whose dictionary is not loaded yet fetches only that one:
+  `GET /api/i18n?locale=ru&route=profile` (root + route, for the locale and the fallback).
+- **API**: handlers get `t` (and `locale`) in the context, from `Accept-Language` or `?lng=`;
+  each request has its own fork, so concurrent requests never switch each other's locale.
+- In development the files are re-read on every request: edits show on reload.
 
----
-
-### 🌍 Switching Locale
-
-The `<LocaleSwitcher />` component changes the current language via redirect:
+### Usage
 
 ```vue
-<LocaleSwitcher />
+<script setup lang="ts">
+import { useI18n } from "@i18n-micro/vue";
+const { t } = useI18n();
+</script>
+
+<template>
+  <h1>{{ t("title") }}</h1>
+  <!-- route dictionary -->
+  <p>{{ $t("common.welcome") }}</p>
+  <!-- root -->
+</template>
 ```
-
-- The **default locale** (`en`) has no prefix
-- Other locales use a prefixed path (`/ru/...`)
-
----
-
-### ⚙️ Adding Translations
-
-#### ➕ Adding a New Namespace
-
-When creating a new translation file (e.g. `lang/en/dashboard.json`, `lang/ru/dashboard.json`):
-
-> Make sure to add the new **namespace** in `config/i18n.config.ts`:
 
 ```ts
-namespaces: ["common", "auth", "profile", "meta", "home", "dashboard"],
+// controller
+return { error: t("auth.invalid_csrf") };
 ```
 
-#### ➕ Adding a New Locale
+### Locales
 
-When adding a new locale (e.g. `de`):
-
-> Update the i18n config to include it:
-
-```ts
-preload: ["en", "ru", "de"],
-supportedLngs: ["en", "ru", "de"],
-```
-
-Ensure the corresponding translation files exist:
-
-```
-lang/de/home.json
-lang/de/common.json
-...
-```
-
----
-
-### 🖥️ Using i18n on the Backend
-
-To use a translation inside a backend controller or handler, use the `t()` function provided in the context. You must reference translations using the `namespace:key` format.
-
-#### ✅ Example
-
-```ts
-export function healthController({ t }: { t: TFunction }) {
-  return {
-    message: t("meta:health"),
-  };
-}
-```
-
-> This will return a translated string from `lang/{locale}/meta.json` under the key `"health"`.
-
----
-
-Let me know if you'd like to add an example of pluralization or interpolation too.
-
-### ✅ Summary
-
-- Use `t("namespace.key")` for all translation calls
-- **Namespace is resolved automatically from the route**
-- Translations are loaded dynamically as needed
-- Update `config/i18n.config.ts` when adding new locales or namespaces
+`config/i18n.config.ts`: `defaultLocale` is unprefixed (`/about`), every other locale is a
+prefix (`/ru/about`). `<LocaleSwitcher />` uses `switchLocale`, which keeps the current page.
+To add a locale, add it to `locales` and create its JSON files.
 
 ---
 
